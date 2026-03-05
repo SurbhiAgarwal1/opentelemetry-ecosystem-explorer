@@ -14,6 +14,7 @@
 #
 """Inventory management for component tracking."""
 
+import logging
 import shutil
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,8 @@ import yaml
 from semantic_version import Version
 
 from .type_defs import COMPONENT_TYPES, DistributionName
+
+logger = logging.getLogger(__name__)
 
 
 class InventoryManager:
@@ -160,6 +163,19 @@ class InventoryManager:
         all_versions = self.list_versions(distribution)
         return [v for v in all_versions if v.prerelease]
 
+    def list_release_versions(self, distribution: DistributionName) -> list[Version]:
+        """
+        List all release (non-prerelease) versions for a distribution.
+
+        Args:
+            distribution: Distribution name
+
+        Returns:
+            List of release versions, sorted newest to oldest
+        """
+        all_versions = self.list_versions(distribution)
+        return [v for v in all_versions if not v.prerelease]
+
     def cleanup_snapshots(self, distribution: DistributionName) -> int:
         """
         Remove all snapshot versions for a distribution.
@@ -211,3 +227,74 @@ class InventoryManager:
             shutil.rmtree(version_dir)
             return True
         return False
+
+    def load_deprecations(self) -> dict[str, dict[str, list[dict[str, Any]]]]:
+        """
+        Load consolidated deprecations index.
+
+        Returns:
+            Dictionary with structure: {distribution: {component_type: [deprecated_components]}}
+            Returns empty structure if file doesn't exist
+        """
+        deprecations_file = self.inventory_dir / "deprecations.yaml"
+
+        if not deprecations_file.exists():
+            logger.debug("Deprecations file does not exist, returning empty structure")
+            return {
+                "core": {component_type: [] for component_type in COMPONENT_TYPES},
+                "contrib": {component_type: [] for component_type in COMPONENT_TYPES},
+            }
+
+        with open(deprecations_file) as f:
+            data = yaml.safe_load(f) or {}
+
+        for dist in ["core", "contrib"]:
+            if dist not in data:
+                data[dist] = {}
+            for component_type in COMPONENT_TYPES:
+                if component_type not in data[dist]:
+                    data[dist][component_type] = []
+
+        return data
+
+    def save_deprecations(self, deprecations: dict[str, dict[str, list[dict[str, Any]]]]) -> None:
+        """
+        Save consolidated deprecations index.
+
+        Args:
+            deprecations: Dictionary with structure: {distribution: {component_type: [deprecated_components]}}
+        """
+        deprecations_file = self.inventory_dir / "deprecations.yaml"
+        self.inventory_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(deprecations_file, "w") as f:
+            yaml.dump(deprecations, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        logger.info(f"Saved deprecations index to {deprecations_file}")
+
+    @staticmethod
+    def add_deprecated_components(
+        deprecations: dict[str, dict[str, list[dict[str, Any]]]],
+        distribution: DistributionName,
+        new_deprecated: dict[str, list[dict[str, Any]]],
+    ) -> None:
+        """
+        Add newly deprecated components to the index, avoiding duplicates.
+
+        Args:
+            deprecations: Existing deprecations index
+            distribution: Distribution name (core or contrib)
+            new_deprecated: New deprecated components by type
+        """
+        for component_type, components in new_deprecated.items():
+            existing_names = {comp["name"] for comp in deprecations[distribution][component_type]}
+
+            for component in components:
+                if component["name"] not in existing_names:
+                    deprecations[distribution][component_type].append(component)
+                    logger.info(
+                        f"Added deprecated {component_type}: {component['name']} "
+                        f"(removed in {component['deprecated_in_version']})"
+                    )
+                else:
+                    logger.debug(f"Skipping duplicate deprecated {component_type}: {component['name']}")

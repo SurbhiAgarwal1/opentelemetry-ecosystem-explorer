@@ -1,0 +1,19 @@
+core:
+  connector: []
+  exporter: []
+  extension: []
+  processor: []
+  receiver: []
+contrib:
+  connector: []
+  exporter: []
+  extension: []
+  processor: []
+  receiver:
+  - name: bigipreceiver
+    last_version: v0.146.0
+    deprecated_in_version: v0.147.0
+    source_repo: opentelemetry-collector-contrib
+    distributions:
+    - contrib
+    subtype: null
