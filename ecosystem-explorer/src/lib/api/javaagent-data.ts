@@ -97,3 +97,19 @@ export async function loadGlobalConfigurations() {
   if (!data) throw new Error("Global configurations returned null unexpectedly");
   return data;
 }
+
+export async function loadLibraryReadme(libraryName: string, markdownHash: string): Promise<string> {
+  const data = await fetchWithCache<string>(
+    `readme-${libraryName}-${markdownHash}`,
+    `${BASE_PATH}/markdown/${libraryName}-${markdownHash}.md`,
+    STORES.METADATA,
+    { format: "text" }
+  );
+
+  if (!data) {
+    throw new Error(
+      `Failed to load readme-${libraryName}-${markdownHash} from ${BASE_PATH}/markdown/${libraryName}-${markdownHash}.md: data returned null`
+    );
+  }
+  return data;
+}
