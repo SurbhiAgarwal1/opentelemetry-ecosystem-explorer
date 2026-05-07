@@ -79,3 +79,11 @@ export async function loadAllInstrumentations(version: string): Promise<Instrume
     })
   );
 }
+
+export async function loadLibraryReadme(libraryName: string, markdownHash: string): Promise<string> {
+  const response = await fetch(`${BASE_PATH}/markdown/${libraryName}-${markdownHash}.md`);
+  if (!response.ok) {
+    throw new Error(`Failed to load README for ${libraryName}`);
+  }
+  return response.text();
+}

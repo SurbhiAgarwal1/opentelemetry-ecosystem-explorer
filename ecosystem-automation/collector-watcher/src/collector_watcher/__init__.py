@@ -16,4 +16,7 @@
 
 import importlib.metadata
 
-__version__ = importlib.metadata.version("collector-watcher")
+try:
+    __version__ = importlib.metadata.version("collector-watcher")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.0.0-dev"

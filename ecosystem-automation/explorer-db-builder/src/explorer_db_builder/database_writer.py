@@ -203,6 +203,33 @@ class DatabaseWriter:
             logger.error(f"Failed to write version list: {e}")
             raise
 
+    def write_markdown(self, library_name: str, markdown_hash: str, content: str) -> None:
+        """Write markdown file to the database.
+
+        Args:
+            library_name: Name of the library
+            markdown_hash: Hash of the markdown content
+            content: Markdown content string
+        """
+        markdown_dir = self.database_dir / "markdown"
+        markdown_dir.mkdir(parents=True, exist_ok=True)
+        file_path = markdown_dir / f"{library_name}-{markdown_hash}.md"
+
+        if file_path.exists():
+            logger.debug(f"Markdown for '{library_name}' with hash {markdown_hash} already exists, skipping write")
+            return
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            file_size = len(content.encode("utf-8"))
+            self.files_written += 1
+            self.total_bytes += file_size
+            logger.debug(f"Wrote markdown for '{library_name}' with hash {markdown_hash}")
+        except OSError as e:
+            logger.error(f"Failed to write markdown for '{library_name}': {e}")
+            # README publishing failures must never fail DB generation as per requirements
+
     def get_stats(self) -> dict[str, Any]:
         """Get statistics about files written during this session.
 

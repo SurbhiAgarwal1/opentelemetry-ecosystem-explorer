@@ -17,6 +17,9 @@
 from collections.abc import Iterable
 from typing import Any
 
+import logging
+import re
+
 import yaml
 from semantic_version import Version
 from watcher_common.content_hashing import compute_content_hash
@@ -113,3 +116,61 @@ class InventoryManager(BaseInventoryManager):
             file_path.write_text(content, encoding="utf-8")
             written += 1
         return written
+
+    def load_library_readme_map(self, version: Version) -> dict[str, str]:
+        """
+        Scan library_readmes/ and build a map of library_name -> markdown_hash.
+
+        Args:
+            version: Version to scan
+
+        Returns:
+            Dictionary mapping library names to their markdown content hashes
+        """
+        readme_dir = self.get_version_dir(version) / self.README_DIR
+        if not readme_dir.exists():
+            return {}
+
+        readme_map = {}
+        for item in readme_dir.iterdir():
+            if item.is_file() and item.suffix == ".md":
+                parsed = self._parse_readme_filename(item.name)
+                if parsed:
+                    library_name, markdown_hash = parsed
+                    readme_map[library_name] = markdown_hash
+                else:
+                    logging.getLogger(__name__).warning(f"Malformed README filename in {version}: {item.name}")
+
+        return readme_map
+
+    def load_library_readme_content(self, version: Version, library_name: str, markdown_hash: str) -> str | None:
+        """
+        Load the content of a specific library README.
+
+        Args:
+            version: Version to load from
+            library_name: Name of the library
+            markdown_hash: Content hash of the markdown
+
+        Returns:
+            The markdown content, or None if it doesn't exist or cannot be read
+        """
+        file_path = self.get_version_dir(version) / self.README_DIR / f"{library_name}-{markdown_hash}.md"
+        if not file_path.exists():
+            return None
+
+        try:
+            return file_path.read_text(encoding="utf-8")
+        except OSError:
+            logging.getLogger(__name__).error(f"Failed to read README file: {file_path}")
+            return None
+
+    def _parse_readme_filename(self, filename: str) -> tuple[str, str] | None:
+        """
+        Parse a README filename into (library_name, markdown_hash).
+        Format: {library-name}-{hash}.md
+        """
+        match = re.match(r"^(.*)-([a-f0-9]+)\.md$", filename)
+        if match:
+            return match.group(1), match.group(2)
+        return None
