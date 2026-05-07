@@ -27,6 +27,7 @@ from explorer_db_builder.configuration_builder import run_configuration_builder
 from explorer_db_builder.database_writer import DatabaseWriter
 from explorer_db_builder.instrumentation_transformer import transform_instrumentation_format
 from explorer_db_builder.metadata_backfiller import backfill_metadata
+from explorer_db_builder.semconv_enricher import SemconvEnricher
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,13 @@ def process_version(
         inventory = inventory_manager.load_versioned_inventory(version)
 
     transformed_inventory = transform_instrumentation_format(inventory)
+
+    # Enrich with semantic convention compliance
+    try:
+        enricher = SemconvEnricher()
+        enricher.enrich_inventory(transformed_inventory)
+    except Exception as e:
+        logger.warning(f"Semantic convention enrichment failed for version {version}: {e}")
 
     if "libraries" not in transformed_inventory and "custom" not in transformed_inventory:
         raise KeyError(f"Inventory for version {version} missing 'libraries' and 'custom' keys")
