@@ -26,6 +26,9 @@ from watcher_common.content_hashing import compute_content_hash
 from watcher_common.inventory_manager import BaseInventoryManager
 
 
+logger = logging.getLogger(__name__)
+
+
 class InventoryManager(BaseInventoryManager):
     """Manages Java instrumentation inventory storage and retrieval."""
 
@@ -99,6 +102,10 @@ class InventoryManager(BaseInventoryManager):
         """Return True if the library_readmes directory exists for this version."""
         return (self.get_version_dir(version) / self.README_DIR).exists()
 
+    def _sanitize_name(self, name: str) -> str:
+        """Sanitizes a name for use as a filename to prevent path traversal."""
+        return re.sub(r"[^a-zA-Z0-9._\-]", "_", name)
+
     def save_library_readmes(
         self,
         version: Version,
@@ -110,7 +117,8 @@ class InventoryManager(BaseInventoryManager):
         written = 0
         for name, content in readmes:
             digest = compute_content_hash(content)
-            file_path = target_dir / f"{name}-{digest}.md"
+            safe_name = self._sanitize_name(name)
+            file_path = target_dir / f"{safe_name}-{digest}.md"
             if file_path.exists():
                 continue
             file_path.write_text(content, encoding="utf-8")
@@ -131,15 +139,46 @@ class InventoryManager(BaseInventoryManager):
         if not readme_dir.exists():
             return {}
 
-        readme_map = {}
-        for item in readme_dir.iterdir():
+        # Tracking for deterministic selection: library_name -> (hash, mtime_ns, filename)
+        selected_readmes: dict[str, tuple[str, int, str]] = {}
+        seen_hashes: dict[str, set[str]] = {}
+
+        for item in sorted(readme_dir.iterdir(), key=lambda p: p.name):
             if item.is_file() and item.suffix == ".md":
                 parsed = self._parse_readme_filename(item.name)
                 if parsed:
                     library_name, markdown_hash = parsed
-                    readme_map[library_name] = markdown_hash
+                    seen_hashes.setdefault(library_name, set()).add(markdown_hash)
+
+                    try:
+                        mtime_ns = item.stat().st_mtime_ns
+                    except OSError:
+                        logger.warning(f"Failed to stat README file in {version}: {item.name}")
+                        continue
+
+                    current = selected_readmes.get(library_name)
+                    if current is None:
+                        selected_readmes[library_name] = (markdown_hash, mtime_ns, item.name)
+                    else:
+                        _, current_mtime_ns, current_name = current
+                        # Pick newest by mtime, fallback to lexicographical name for total determinism
+                        if mtime_ns > current_mtime_ns or (
+                            mtime_ns == current_mtime_ns and item.name > current_name
+                        ):
+                            selected_readmes[library_name] = (markdown_hash, mtime_ns, item.name)
                 else:
-                    logging.getLogger(__name__).warning(f"Malformed README filename in {version}: {item.name}")
+                    logger.warning(f"Malformed README filename in {version}: {item.name}")
+
+        readme_map = {}
+        for library_name, (markdown_hash, _, selected_name) in selected_readmes.items():
+            readme_map[library_name] = markdown_hash
+            hashes = seen_hashes.get(library_name, set())
+            if len(hashes) > 1:
+                logger.warning(
+                    f"Multiple README files found for library '{library_name}' in {version}; "
+                    f"selected '{selected_name}' with hash '{markdown_hash}'. "
+                    f"Available hashes: {sorted(hashes)}"
+                )
 
         return readme_map
 
@@ -155,14 +194,15 @@ class InventoryManager(BaseInventoryManager):
         Returns:
             The markdown content, or None if it doesn't exist or cannot be read
         """
-        file_path = self.get_version_dir(version) / self.README_DIR / f"{library_name}-{markdown_hash}.md"
+        safe_name = self._sanitize_name(library_name)
+        file_path = self.get_version_dir(version) / self.README_DIR / f"{safe_name}-{markdown_hash}.md"
         if not file_path.exists():
             return None
 
         try:
             return file_path.read_text(encoding="utf-8")
-        except OSError:
-            logging.getLogger(__name__).error(f"Failed to read README file: {file_path}")
+        except OSError as e:
+            logger.error(f"Failed to read README file '{file_path}': {e}")
             return None
 
     def _parse_readme_filename(self, filename: str) -> tuple[str, str] | None:
@@ -170,7 +210,7 @@ class InventoryManager(BaseInventoryManager):
         Parse a README filename into (library_name, markdown_hash).
         Format: {library-name}-{hash}.md
         """
-        match = re.match(r"^(.*)-([a-f0-9]+)\.md$", filename)
+        match = re.match(r"^(.+)-([a-f0-9]{12})\.md$", filename)
         if match:
             return match.group(1), match.group(2)
         return None

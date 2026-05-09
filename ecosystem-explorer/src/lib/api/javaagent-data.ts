@@ -81,9 +81,15 @@ export async function loadAllInstrumentations(version: string): Promise<Instrume
 }
 
 export async function loadLibraryReadme(libraryName: string, markdownHash: string): Promise<string> {
-  const response = await fetch(`${BASE_PATH}/markdown/${libraryName}-${markdownHash}.md`);
-  if (!response.ok) {
-    throw new Error(`Failed to load README for ${libraryName}`);
+  const url = `${BASE_PATH}/markdown/${libraryName}-${markdownHash}.md`;
+  const data = await fetchWithCache<string>(
+    `readme-${libraryName}-${markdownHash}`,
+    url,
+    STORES.METADATA,
+    { format: "text" }
+  );
+  if (data === null) {
+    throw new Error(`README for ${libraryName} returned null unexpectedly`);
   }
-  return response.text();
+  return data;
 }

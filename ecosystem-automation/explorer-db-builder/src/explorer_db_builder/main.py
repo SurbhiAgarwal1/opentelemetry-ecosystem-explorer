@@ -146,7 +146,7 @@ def run_javaagent_builder(
         for version, readme_map in readme_maps.items():
             for library_name, markdown_hash in readme_map.items():
                 content = inventory_manager.load_library_readme_content(version, library_name, markdown_hash)
-                if content:
+                if content is not None:
                     db_writer.write_markdown(library_name, markdown_hash, content)
 
         def load_and_augment_inventory(version: Version) -> dict:
