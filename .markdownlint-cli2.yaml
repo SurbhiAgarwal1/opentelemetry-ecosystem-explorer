@@ -5,6 +5,7 @@ ignores:
   - "**/AGENTS.md"
   - "ecosystem-explorer/DESIGN.md"
   - "ecosystem-registry/**"
+  - "ecosystem-explorer/public/data/**"
   - "**/tmp_repos/**"
   - "**/node_modules/**"
   - ".claude/**"
