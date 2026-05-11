@@ -342,9 +342,9 @@ describe("javaagent-data", () => {
         statusText: "Not Found",
       });
 
-      await expect(
-        javaagentData.loadLibraryReadme("mylib", "abc123def456")
-      ).rejects.toThrow(/Failed to load readme-mylib-abc123def456 from.*: 404 Not Found/);
+      await expect(javaagentData.loadLibraryReadme("mylib", "abc123def456")).rejects.toThrow(
+        /Failed to load readme-mylib-abc123def456 from.*: 404 Not Found/
+      );
     });
   });
 });

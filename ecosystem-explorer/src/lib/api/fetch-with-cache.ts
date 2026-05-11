@@ -62,7 +62,9 @@ export async function fetchWithCache<T>(
         if (response.status === 404 && options?.allow404) {
           return null;
         }
-        throw new Error(`Failed to load ${cacheKey} from ${url}: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Failed to load ${cacheKey} from ${url}: ${response.status} ${response.statusText}`
+        );
       }
 
       const format = options?.format ?? "json";

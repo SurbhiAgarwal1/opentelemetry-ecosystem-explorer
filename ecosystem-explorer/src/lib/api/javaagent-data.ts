@@ -88,7 +88,10 @@ export async function loadAllInstrumentations(version: string): Promise<Instrume
   );
 }
 
-export async function loadLibraryReadme(libraryName: string, markdownHash: string): Promise<string> {
+export async function loadLibraryReadme(
+  libraryName: string,
+  markdownHash: string
+): Promise<string> {
   const url = `${BASE_PATH}/markdown/${libraryName}-${markdownHash}.md`;
   const data = await fetchWithCache<string>(
     `readme-${libraryName}-${markdownHash}`,
