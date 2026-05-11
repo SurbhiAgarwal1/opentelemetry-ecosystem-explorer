@@ -30,6 +30,7 @@ coverage
 
 # Data (avoid formatting large generated files)
 ecosystem-explorer/public/data
+public/data
 
 # Registry (written by automation watchers - do not reformat)
 ecosystem-registry
