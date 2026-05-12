@@ -212,11 +212,7 @@ class TestRunJavaagentBuilder:
     def test_run_builder_processes_readmes(self, mock_inventory_manager, mock_db_writer):
         """Verifies READMEs are discovered, published, and hashes injected."""
         versions = [Version("1.0.0")]
-        inventory_data = {
-            "file_format": 0.2, 
-            "libraries": [{"name": "lib1"}],
-            "custom": [{"name": "custom1"}]
-        }
+        inventory_data = {"file_format": 0.2, "libraries": [{"name": "lib1"}], "custom": [{"name": "custom1"}]}
         readme_map = {"lib1": "abc123def456", "custom1": "fed4321cba98"}
         readme_content = "# README content"
 
@@ -229,7 +225,7 @@ class TestRunJavaagentBuilder:
         exit_code = run_javaagent_builder(mock_inventory_manager, mock_db_writer)
 
         assert exit_code == 0
-        
+
         # Verify READMEs were loaded and written
         assert mock_inventory_manager.load_library_readme_map.call_count == 1
         assert mock_inventory_manager.load_library_readme_content.call_count == 2

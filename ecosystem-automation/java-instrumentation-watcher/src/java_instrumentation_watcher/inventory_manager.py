@@ -14,17 +14,15 @@
 #
 """Inventory management for Java instrumentation tracking."""
 
-from collections.abc import Iterable
-from typing import Any
-
 import logging
 import re
+from collections.abc import Iterable
+from typing import Any
 
 import yaml
 from semantic_version import Version
 from watcher_common.content_hashing import compute_content_hash
 from watcher_common.inventory_manager import BaseInventoryManager
-
 
 logger = logging.getLogger(__name__)
 
@@ -162,9 +160,7 @@ class InventoryManager(BaseInventoryManager):
                     else:
                         _, current_mtime_ns, current_name = current
                         # Pick newest by mtime, fallback to lexicographical name for total determinism
-                        if mtime_ns > current_mtime_ns or (
-                            mtime_ns == current_mtime_ns and item.name > current_name
-                        ):
+                        if mtime_ns > current_mtime_ns or (mtime_ns == current_mtime_ns and item.name > current_name):
                             selected_readmes[library_name] = (markdown_hash, mtime_ns, item.name)
                 else:
                     logger.warning(f"Malformed README filename in {version}: {item.name}")

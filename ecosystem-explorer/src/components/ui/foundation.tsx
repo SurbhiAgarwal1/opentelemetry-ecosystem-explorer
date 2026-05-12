@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 interface TypeStripeProps {
   type: string;
   className?: string;

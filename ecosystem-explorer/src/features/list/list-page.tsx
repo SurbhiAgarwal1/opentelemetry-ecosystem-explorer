@@ -20,11 +20,7 @@ import { Loader2, Search } from "lucide-react";
 
 import { PageContainer } from "@/components/layout/page-container";
 import { useCollectorVersions, useCollectorIndex } from "@/hooks/use-collector-data";
-import {
-  parseListFilters,
-  serializeListFilters,
-  DEFAULT_FILTERS,
-} from "@/lib/list-filters";
+import { parseListFilters, serializeListFilters, DEFAULT_FILTERS } from "@/lib/list-filters";
 import type { ListFilters, Density, SortOption } from "@/lib/list-filters";
 
 import { FacetPanel } from "./components/facet-panel";
