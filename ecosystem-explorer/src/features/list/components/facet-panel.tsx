@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import React from "react";
-import { ListFilters } from "@/lib/list-filters";
+import type { ListFilters } from "@/lib/list-filters";
 import { SearchFacet } from "./facets/search-facet";
 import { CheckboxFacet } from "./facets/checkbox-facet";
 import { SelectFacet } from "./facets/select-facet";

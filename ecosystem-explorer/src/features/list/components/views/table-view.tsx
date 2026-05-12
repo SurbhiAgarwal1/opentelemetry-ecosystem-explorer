@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import React from "react";
 import { useNavigate } from "react-router-dom";
-import { IndexComponent } from "@/types/collector";
+import type { IndexComponent } from "@/types/collector";
 import { StatusPill } from "@/components/ui/foundation";
 import { ArrowUpDown } from "lucide-react";
 

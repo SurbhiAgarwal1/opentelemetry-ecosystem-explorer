@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Search, X } from "lucide-react";
 
 interface SearchFacetProps {
@@ -26,10 +26,12 @@ interface SearchFacetProps {
 
 export function SearchFacet({ title, value, onChange, placeholder }: SearchFacetProps) {
   const [localValue, setLocalValue] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
 
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value);
     setLocalValue(value);
-  }, [value]);
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {

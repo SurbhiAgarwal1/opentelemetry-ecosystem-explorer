@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-import React from "react";
 import { X } from "lucide-react";
-import { ListFilters, DEFAULT_FILTERS } from "@/lib/list-filters";
+import type { ListFilters } from "@/lib/list-filters";
 
 interface ActiveFilterChipsProps {
   filters: ListFilters;
-  onRemove: (key: keyof ListFilters, value: any) => void;
+  onRemove: (key: keyof ListFilters, value: string) => void;
   onClearAll: () => void;
 }
 

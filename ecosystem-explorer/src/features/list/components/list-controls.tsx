@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import React from "react";
+import type { ReactNode } from "react";
 import { LayoutGrid, List, Table, ChevronDown } from "lucide-react";
-import { Density, SortOption } from "@/lib/list-filters";
+import type { Density, SortOption } from "@/lib/list-filters";
 
 interface DensityToggleProps {
   value: Density;
@@ -24,7 +24,7 @@ interface DensityToggleProps {
 }
 
 export function DensityToggle({ value, onChange }: DensityToggleProps) {
-  const options: { value: Density; icon: React.ReactNode; label: string }[] = [
+  const options: { value: Density; icon: ReactNode; label: string }[] = [
     { value: "compact", icon: <List className="h-4 w-4" />, label: "Compact" },
     { value: "cards", icon: <LayoutGrid className="h-4 w-4" />, label: "Cards" },
     { value: "table", icon: <Table className="h-4 w-4" />, label: "Table" },

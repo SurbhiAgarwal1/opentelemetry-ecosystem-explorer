@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import React, { useMemo, useEffect } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useMemo, useEffect, useCallback } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Loader2, Search } from "lucide-react";
 
 import { PageContainer } from "@/components/layout/page-container";
@@ -23,10 +23,9 @@ import { useCollectorVersions, useCollectorIndex } from "@/hooks/use-collector-d
 import {
   parseListFilters,
   serializeListFilters,
-  ListFilters,
   DEFAULT_FILTERS,
-  Density,
 } from "@/lib/list-filters";
+import type { ListFilters, Density, SortOption } from "@/lib/list-filters";
 
 import { FacetPanel } from "./components/facet-panel";
 import { ActiveFilterChips } from "./components/active-filter-chips";
@@ -44,7 +43,6 @@ export function ListPage() {
     version?: string;
   }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const filters = useMemo(() => parseListFilters(searchParams), [searchParams]);
 
@@ -58,13 +56,22 @@ export function ListPage() {
 
   const { data: indexData, loading: indexLoading } = useCollectorIndex(currentVersion);
 
+  const handleFilterChange = useCallback(
+    (updates: Partial<ListFilters>) => {
+      const newFilters = { ...filters, ...updates, page: updates.page ?? 1 };
+      const params = serializeListFilters(newFilters);
+      setSearchParams(params as Record<string, string | string[]>);
+    },
+    [filters, setSearchParams]
+  );
+
   // Sync density to/from localStorage
   useEffect(() => {
     const savedDensity = localStorage.getItem("list-density") as Density;
     if (savedDensity && !searchParams.has("density")) {
       handleFilterChange({ density: savedDensity });
     }
-  }, []);
+  }, [handleFilterChange, searchParams]);
 
   useEffect(() => {
     if (filters.density) {
@@ -72,25 +79,19 @@ export function ListPage() {
     }
   }, [filters.density]);
 
-  const handleFilterChange = (updates: Partial<ListFilters>) => {
-    const newFilters = { ...filters, ...updates, page: updates.page ?? 1 };
-    const params = serializeListFilters(newFilters);
-    setSearchParams(params as any);
-  };
-
-  const handleRemoveFilter = (key: keyof ListFilters, value: any) => {
+  const handleRemoveFilter = (key: keyof ListFilters, value: string) => {
     const current = filters[key];
     if (Array.isArray(current)) {
       handleFilterChange({ [key]: current.filter((v) => v !== value) });
     } else {
-      handleFilterChange({ [key]: (DEFAULT_FILTERS as any)[key] });
+      handleFilterChange({ [key]: (DEFAULT_FILTERS as unknown as Record<string, unknown>)[key] });
     }
   };
 
   const filteredItems = useMemo(() => {
     if (!indexData) return [];
 
-    let result = indexData.components.filter((item) => {
+    const result = indexData.components.filter((item) => {
       const matchesSearch =
         !filters.q ||
         item.name.toLowerCase().includes(filters.q.toLowerCase()) ||
@@ -203,7 +204,7 @@ export function ListPage() {
                   <TableView
                     items={paginatedItems}
                     baseUrl={baseUrl}
-                    onSort={(s) => handleFilterChange({ sort: s as any })}
+                    onSort={(s) => handleFilterChange({ sort: s as SortOption })}
                   />
                 )}
 

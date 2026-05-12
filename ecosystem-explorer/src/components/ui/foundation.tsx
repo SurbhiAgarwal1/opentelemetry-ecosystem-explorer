@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import React from "react";
 
 interface TypeStripeProps {
   type: string;

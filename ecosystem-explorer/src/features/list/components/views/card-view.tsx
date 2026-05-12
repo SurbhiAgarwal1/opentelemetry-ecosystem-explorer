@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import React from "react";
 import { Link } from "react-router-dom";
-import { IndexComponent } from "@/types/collector";
+import type { IndexComponent } from "@/types/collector";
 import { DetailCard } from "@/components/ui/detail-card";
 import { StatusPill } from "@/components/ui/foundation";
 import { Box, Layers, Send, Plug, Workflow } from "lucide-react";

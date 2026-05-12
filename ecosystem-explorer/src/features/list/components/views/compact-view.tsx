@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import React from "react";
 import { Link } from "react-router-dom";
-import { IndexComponent } from "@/types/collector";
+import type { IndexComponent } from "@/types/collector";
 import { TypeStripe, StatusPill } from "@/components/ui/foundation";
 
 interface CompactViewProps {
