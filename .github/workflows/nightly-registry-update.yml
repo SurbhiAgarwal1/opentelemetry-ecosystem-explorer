@@ -223,7 +223,11 @@ jobs:
           fi
 
       - name: Commit and push changes
-        if: steps.check_changes.outputs.has_changes == 'true'
+        if: |
+          steps.check_changes.outputs.has_changes == 'true' &&
+          steps.collector_watcher.outcome == 'success' &&
+          steps.java_instrumentation_watcher.outcome == 'success' &&
+          steps.configuration_watcher.outcome == 'success'
         env:
           GH_TOKEN:
             ${{ steps.repo_check.outputs.is_primary == 'true' && steps.otelbot-token.outputs.token
