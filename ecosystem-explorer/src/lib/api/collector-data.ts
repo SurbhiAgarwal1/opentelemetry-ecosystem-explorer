@@ -13,26 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type {
-  CollectorComponent,
-  CollectorIndex,
-  VersionManifest,
-  VersionsIndex,
-} from "@/types/collector";
+import type { CollectorComponent, VersionManifest, VersionsIndex } from "@/types/collector";
 import { STORES } from "./idb-cache";
 import { fetchWithCache } from "./fetch-with-cache";
 
 const BASE_PATH = "/data/collector";
-
-export async function loadIndex(version: string): Promise<CollectorIndex> {
-  const data = await fetchWithCache<CollectorIndex>(
-    `collector-index-${version}`,
-    `${BASE_PATH}/versions/${version}-index.json`,
-    STORES.METADATA
-  );
-  if (!data) throw new Error(`Collector index for version ${version} returned null unexpectedly`);
-  return data;
-}
 
 export async function loadVersions(): Promise<VersionsIndex> {
   const data = await fetchWithCache<VersionsIndex>(

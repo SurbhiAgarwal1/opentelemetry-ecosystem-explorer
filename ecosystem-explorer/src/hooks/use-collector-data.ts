@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import { useState, useEffect } from "react";
-import type { VersionsIndex, CollectorComponent, CollectorIndex } from "@/types/collector";
+import type { VersionsIndex, CollectorComponent } from "@/types/collector";
 import type { DataState } from "./data-state";
 import * as collectorData from "@/lib/api/collector-data";
 
@@ -142,50 +142,6 @@ export function useCollectorComponent(
       cancelled = true;
     };
   }, [name, version]);
-
-  return state;
-}
-
-export function useCollectorIndex(version: string): DataState<CollectorIndex> {
-  const [state, setState] = useState<DataState<CollectorIndex>>({
-    data: null,
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadData() {
-      if (!version) {
-        setState({ data: null, loading: false, error: null });
-        return;
-      }
-
-      setState({ data: null, loading: true, error: null });
-
-      try {
-        const data = await collectorData.loadIndex(version);
-        if (!cancelled) {
-          setState({ data, loading: false, error: null });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setState({
-            data: null,
-            loading: false,
-            error: error instanceof Error ? error : new Error(String(error)),
-          });
-        }
-      }
-    }
-
-    loadData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [version]);
 
   return state;
 }
