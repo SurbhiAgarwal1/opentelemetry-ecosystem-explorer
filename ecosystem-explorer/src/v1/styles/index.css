@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { BrowserRouter } from "react-router-dom";
-import { LegacyApp } from "@/LegacyApp";
-import { V1App } from "@/v1";
-import { isEnabled } from "@/lib/feature-flags";
 
-/*
- * Single V1_REDESIGN boundary read. See
- * `projects/84-ui-ux-design/v1-routing-pivot.md` for the routing pivot context.
- * Both sub-apps share canonical paths under a single <BrowserRouter>; per-deploy
- * bundle selection is driven by netlify.toml's `feat/84-*` branch pattern.
+/**
+ * V1 styles entry point — imported by `src/v1/V1App.tsx`.
+ *
+ * - tokens.css       — v1-only surface-token overrides, scoped via `.v1-app`
+ * - navbar.css       — v1 navbar (`.td-navbar`) — mirrors opentelemetry.io
+ * - theme-toggle.css — v1 theme toggle dropdown — mirrors opentelemetry.io
+ *
+ * Navbar and theme-toggle styles use class selectors (`.td-navbar`,
+ * `.td-light-dark-menu__*`) and only match elements rendered by `<V1App />`,
+ * so they're inert in the legacy bundle even when both branches ship.
  */
-export default function App() {
-  return <BrowserRouter>{isEnabled("V1_REDESIGN") ? <V1App /> : <LegacyApp />}</BrowserRouter>;
-}
+@import "./tokens.css";
+@import "./navbar.css";
+@import "./theme-toggle.css";
