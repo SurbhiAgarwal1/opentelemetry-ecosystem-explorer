@@ -1,5 +1,5 @@
 distribution: contrib
-version: 0.151.1-SNAPSHOT
+version: 0.152.0
 repository: opentelemetry-collector-contrib
 component_type: exporter
 schema_hash: 8ef455c6e37c
@@ -393,10 +393,7 @@ components:
       - k8s
       codeowners:
         active:
-        - paulojmdias
-        emeritus:
         - atingchen
-        seeking_new: true
 - name: googlecloudexporter
   metadata:
     type: googlecloud
@@ -498,9 +495,6 @@ components:
       - contrib
       codeowners:
         active:
-        - VinozzZ
-        - codeboten
-        emeritus:
         - TylerHelmuth
         - fchikwekwe
 - name: influxdbexporter

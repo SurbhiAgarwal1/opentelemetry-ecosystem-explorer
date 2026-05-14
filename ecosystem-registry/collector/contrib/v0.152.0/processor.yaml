@@ -1,5 +1,5 @@
 distribution: contrib
-version: 0.151.1-SNAPSHOT
+version: 0.152.0
 repository: opentelemetry-collector-contrib
 component_type: processor
 schema_hash: 8ef455c6e37c
@@ -633,29 +633,17 @@ components:
     status:
       class: processor
       stability:
-        alpha:
+        development:
         - logs
         - metrics
         - traces
-      distributions:
-      - contrib
+      distributions: []
       codeowners:
         active:
         - MovieStoreGuy
         - ankitpatel96
         - dineshg13
         - MikeGoldsmith
-    attributes:
-      from_schema_url:
-        description: The schema URL the signal arrived with
-        type: string
-      migration_from_schema_url:
-        description: The migration from version boundary (only present when migration
-          is active)
-        type: string
-      to_schema_url:
-        description: The target schema URL the signal was translated to
-        type: string
 - name: spanprocessor
   metadata:
     type: span

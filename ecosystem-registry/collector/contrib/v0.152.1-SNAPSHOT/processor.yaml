@@ -1,5 +1,5 @@
 distribution: contrib
-version: 0.151.1-SNAPSHOT
+version: 0.152.1-SNAPSHOT
 repository: opentelemetry-collector-contrib
 component_type: processor
 schema_hash: 8ef455c6e37c
@@ -158,7 +158,7 @@ components:
         - boostchicken
 - name: genainormalizerprocessor
   metadata:
-    type: genainormalizer
+    type: gen_ai_normalizer
     display_name: GenAI Normalizer Processor
     status:
       class: processor
@@ -308,7 +308,9 @@ components:
         - profiles
         - traces
       pod_identifier:
-        description: The pod identifier value(s) used for the association attempt
+        description: The source(s) used to identify the pod, formatted as 'from/name'
+          (e.g., 'connection', 'resource_attribute/k8s.pod.ip'). Does not contain
+          actual identifier values to avoid high cardinality.
         type: string
       status:
         description: The status of the pod association operation
