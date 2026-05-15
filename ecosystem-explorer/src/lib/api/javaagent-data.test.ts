@@ -102,7 +102,7 @@ describe("javaagent-data", () => {
       });
 
       await expect(javaagentData.loadVersions()).rejects.toThrow(
-        "Failed to load versions-index: 404 Not Found"
+        "Failed to load versions-index from /data/javaagent/versions-index.json: 404 Not Found"
       );
     });
 
@@ -315,6 +315,38 @@ describe("javaagent-data", () => {
       const result = await javaagentData.loadAllInstrumentations("2.10.0");
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("loadLibraryReadme", () => {
+    it("should load library README markdown", async () => {
+      const readmeText = "# My Library README";
+      vi.spyOn(idbCache, "getCached").mockResolvedValue(null);
+      vi.spyOn(idbCache, "setCached").mockResolvedValue();
+
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        text: async () => readmeText,
+      });
+
+      const result = await javaagentData.loadLibraryReadme("mylib", "abc123def456");
+
+      expect(result).toEqual(readmeText);
+      expect(global.fetch).toHaveBeenCalledWith("/data/javaagent/markdown/mylib-abc123def456.md");
+    });
+
+    it("should propagate fetch errors when loading README", async () => {
+      vi.spyOn(idbCache, "getCached").mockResolvedValue(null);
+
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+      });
+
+      await expect(javaagentData.loadLibraryReadme("mylib", "abc123def456")).rejects.toThrow(
+        /Failed to load readme-mylib-abc123def456 from.*: 404 Not Found/
+      );
     });
   });
 });

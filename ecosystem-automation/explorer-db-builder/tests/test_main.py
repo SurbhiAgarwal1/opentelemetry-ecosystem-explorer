@@ -292,6 +292,29 @@ class TestRunJavaagentBuilder:
         assert call_order[0] == "clean"
         assert call_order[1] == "list_versions"
 
+    def test_run_builder_processes_readmes(self, mock_inventory_manager, mock_db_writer):
+        versions = [Version("1.0.0")]
+        readme_map = {"lib1": "hash123"}
+        readme_content = "# README content"
+        inventory_data = {"file_format": 0.2, "libraries": [{"name": "lib1"}]}
+
+        mock_inventory_manager.list_versions.return_value = versions
+        mock_inventory_manager.load_library_readme_map.return_value = readme_map
+        mock_inventory_manager.load_library_readme_content.return_value = readme_content
+        mock_inventory_manager.load_versioned_inventory.return_value = inventory_data
+        mock_db_writer.write_libraries.return_value = {"lib1": "jsonhash"}
+
+        exit_code = run_javaagent_builder(mock_inventory_manager, mock_db_writer)
+
+        assert exit_code == 0
+        # Verify README was published
+        mock_db_writer.write_markdown.assert_called_once_with("lib1", "hash123", readme_content)
+        
+        # Verify inventory was augmented with markdown_hash before writing
+        write_calls = mock_db_writer.write_libraries.call_args_list
+        augmented_libs = write_calls[0][0][0]
+        assert augmented_libs[0]["markdown_hash"] == "hash123"
+
 
 class TestMain:
     @patch("explorer_db_builder.main.run_builder")

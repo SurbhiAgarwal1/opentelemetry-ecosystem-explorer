@@ -107,9 +107,9 @@ class TestSemconvEnricher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             self.enricher._prepare_weaver_registry(temp_dir, self.sample_instrumentation, "1.37.0")
             results = self.enricher._run_weaver_check(temp_dir)
-            
+
             self.assertFalse(results["http.server.request.duration"])
-            self.assertTrue(results["test-lib.SERVER"])
+            self.assertFalse(results["test-lib.SERVER"])
 
     @patch.object(SemconvEnricher, "_run_weaver_check")
     def test_enrich_instrumentation(self, mock_check):

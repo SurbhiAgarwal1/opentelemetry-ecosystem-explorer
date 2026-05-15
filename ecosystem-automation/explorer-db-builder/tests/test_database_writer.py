@@ -440,3 +440,39 @@ class TestIntegration:
         # Verify structure
         assert (temp_db_dir / "versions" / "1.0.0-index.json").exists()
         assert (temp_db_dir / "versions" / "2.0.0-index.json").exists()
+
+
+class TestWriteMarkdown:
+    def test_write_markdown_success(self, db_writer, temp_db_dir):
+        content = "# Test Markdown"
+        db_writer.write_markdown("test-lib", "hash123", content)
+
+        expected_path = temp_db_dir / "markdown" / "test-lib-hash123.md"
+        assert expected_path.exists()
+        assert expected_path.read_text(encoding="utf-8") == content
+
+    def test_write_markdown_sanitization(self, db_writer, temp_db_dir):
+        content = "content"
+        # Test path traversal attempt in library name
+        db_writer.write_markdown("../invalid/path", "hash", content)
+
+        # Should be sanitized to ___invalid_path-hash.md
+        # re.sub(r"[^a-zA-Z0-9_\-]", "_", "../invalid/path") -> "___invalid_path"
+        expected_path = temp_db_dir / "markdown" / "___invalid_path-hash.md"
+        assert expected_path.exists()
+        assert not (temp_db_dir / "invalid").exists()
+
+    def test_write_markdown_skip_existing(self, db_writer, temp_db_dir, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+
+        content = "content"
+        db_writer.write_markdown("lib", "hash", content)
+        caplog.clear()
+
+        # Write again
+        db_writer.write_markdown("lib", "hash", "new content")
+
+        # Should skip and NOT overwrite
+        assert "already exists" in caplog.text
+        assert (temp_db_dir / "markdown" / "lib-hash.md").read_text(encoding="utf-8") == content

@@ -16,6 +16,7 @@
 
 import json
 import logging
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -211,9 +212,11 @@ class DatabaseWriter:
             markdown_hash: Hash of the markdown content
             content: Markdown content string
         """
+        # Sanitize library name to prevent path traversal
+        safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", library_name)
         markdown_dir = self.database_dir / "markdown"
         markdown_dir.mkdir(parents=True, exist_ok=True)
-        file_path = markdown_dir / f"{library_name}-{markdown_hash}.md"
+        file_path = markdown_dir / f"{safe_name}-{markdown_hash}.md"
 
         if file_path.exists():
             logger.debug(f"Markdown for '{library_name}' with hash {markdown_hash} already exists, skipping write")

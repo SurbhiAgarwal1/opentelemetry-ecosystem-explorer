@@ -110,7 +110,9 @@ class InventoryManager(BaseInventoryManager):
         written = 0
         for name, content in readmes:
             digest = compute_content_hash(content)
-            file_path = target_dir / f"{name}-{digest}.md"
+            # Sanitize name to prevent path traversal
+            safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
+            file_path = target_dir / f"{safe_name}-{digest}.md"
             if file_path.exists():
                 continue
             file_path.write_text(content, encoding="utf-8")
@@ -155,7 +157,10 @@ class InventoryManager(BaseInventoryManager):
         Returns:
             The markdown content, or None if it doesn't exist or cannot be read
         """
-        file_path = self.get_version_dir(version) / self.README_DIR / f"{library_name}-{markdown_hash}.md"
+        # Sanitize name and hash to prevent path traversal
+        safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", library_name)
+        safe_hash = re.sub(r"[^a-f0-9]", "", markdown_hash)
+        file_path = self.get_version_dir(version) / self.README_DIR / f"{safe_name}-{safe_hash}.md"
         if not file_path.exists():
             return None
 

@@ -19,6 +19,7 @@ const inflightRequests = new Map<string, Promise<unknown>>();
 
 export interface FetchWithCacheOptions<T = unknown> {
   allow404?: boolean;
+  format?: "json" | "text";
   /**
    * Optional validator for cached data. When provided, cached data that fails
    * validation is ignored for the current request and a fresh network request
@@ -61,10 +62,13 @@ export async function fetchWithCache<T>(
         if (response.status === 404 && options?.allow404) {
           return null;
         }
-        throw new Error(`Failed to load ${cacheKey}: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Failed to load ${cacheKey} from ${url}: ${response.status} ${response.statusText}`
+        );
       }
 
-      const data = await response.json();
+      const format = options?.format ?? "json";
+      const data = format === "json" ? await response.json() : await response.text();
 
       if (isIDBAvailable()) {
         try {

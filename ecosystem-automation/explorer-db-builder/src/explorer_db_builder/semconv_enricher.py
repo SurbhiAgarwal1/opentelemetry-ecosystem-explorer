@@ -156,26 +156,35 @@ class SemconvEnricher:
         # If weaver is not found, it will raise an exception which is caught in enrich_instrumentation.
 
         cmd = [self.weaver_path, "registry", "check", "-r", registry_dir]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                f"Weaver registry check timed out after 60 seconds for {registry_dir}; "
+                "skipping semconv enrichment for this instrumentation."
+            )
+            return {}
 
-        # Parse output for errors. This is a simplified POC parser.
-        # Weaver output format for errors is usually like "[Error] signals/telemetry.yaml: ..."
         compliance_map = {}
 
         # Initially assume all are compliant if Weaver succeeded
         # We need to know which signals we defined to populate the map.
         # We'll read them back from the generated yaml.
-        with open(os.path.join(registry_dir, "telemetry.yaml")) as f:
-            telemetry_data = yaml.safe_load(f)
-            for group in telemetry_data.get("groups", []):
-                compliance_map[group["id"]] = True
+        try:
+            with open(os.path.join(registry_dir, "telemetry.yaml")) as f:
+                telemetry_data = yaml.safe_load(f)
+                for group in telemetry_data.get("groups", []):
+                    compliance_map[group["id"]] = (result.returncode == 0)
+        except Exception as e:
+            logger.error(f"Failed to read telemetry.yaml from {registry_dir}: {e}")
+            return {}
 
         if result.returncode != 0:
             # Parse errors to mark specific signals as non-compliant
             # Example error line: [Error] groups[0].attributes[1]: attribute 'foo' not found in registry
             # This is complex to parse robustly without a stable Weaver output format.
             # For the POC, if Weaver fails, we mark everything as non-compliant or log it.
-            logger.debug(f"Weaver reported errors:\n{result.stderr}")
+            logger.debug(f"Weaver reported errors (exit code {result.returncode}):\n{result.stderr}")
 
             # Simple heuristic: if an ID appears in an error line, mark it as non-compliant
             for signal_id in compliance_map.keys():
