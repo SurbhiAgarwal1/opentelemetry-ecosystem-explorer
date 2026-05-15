@@ -150,9 +150,8 @@ describe("javaagent-data", () => {
       const request2 = javaagentData.loadVersions();
       const request3 = javaagentData.loadVersions();
 
-      await vi.waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledTimes(1);
-      });
+      await Promise.resolve(); // Allow microtasks to run
+      expect(global.fetch).toHaveBeenCalledTimes(1);
 
       fetchResolve!({
         ok: true,
@@ -344,6 +343,33 @@ describe("javaagent-data", () => {
 
       await expect(javaagentData.loadLibraryReadme("mylib", "abc123def456")).rejects.toThrow(
         /Failed to load readme-mylib-abc123def456 from.*: 404 Not Found/
+      );
+    });
+  });
+
+  describe("loadGlobalConfigurations", () => {
+    it("should load global configurations", async () => {
+      const config = { some: "config" };
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: async () => config,
+      });
+
+      const result = await javaagentData.loadGlobalConfigurations();
+
+      expect(result).toEqual(config);
+      expect(global.fetch).toHaveBeenCalledWith("/data/javaagent/global-configurations.json");
+    });
+
+    it("should throw error when global configurations fetch fails", async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: "Server Error",
+      });
+
+      await expect(javaagentData.loadGlobalConfigurations()).rejects.toThrow(
+        /Failed to load global-configurations from .*: 500 Server Error/
       );
     });
   });
