@@ -98,7 +98,10 @@ export async function loadGlobalConfigurations() {
   return data;
 }
 
-export async function loadLibraryReadme(libraryName: string, markdownHash: string): Promise<string> {
+export async function loadLibraryReadme(
+  libraryName: string,
+  markdownHash: string
+): Promise<string> {
   const data = await fetchWithCache<string>(
     `readme-${libraryName}-${markdownHash}`,
     `${BASE_PATH}/markdown/${libraryName}-${markdownHash}.md`,

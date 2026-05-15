@@ -309,7 +309,7 @@ class TestRunJavaagentBuilder:
         assert exit_code == 0
         # Verify README was published
         mock_db_writer.write_markdown.assert_called_once_with("lib1", "hash123", readme_content)
-        
+
         # Verify inventory was augmented with markdown_hash before writing
         write_calls = mock_db_writer.write_libraries.call_args_list
         augmented_libs = write_calls[0][0][0]

@@ -91,7 +91,9 @@ class SemconvEnricher:
         # manifest.yaml
         manifest = {
             "name": instrumentation.get("name", "check"),
-            "schema_url": instrumentation.get("scope", {}).get("schema_url", f"https://opentelemetry.io/schemas/{version}"),
+            "schema_url": instrumentation.get("scope", {}).get(
+                "schema_url", f"https://opentelemetry.io/schemas/{version}"
+            ),
             "dependencies": [
                 {
                     "name": "otel",
@@ -174,7 +176,7 @@ class SemconvEnricher:
             with open(os.path.join(registry_dir, "telemetry.yaml")) as f:
                 telemetry_data = yaml.safe_load(f)
                 for group in telemetry_data.get("groups", []):
-                    compliance_map[group["id"]] = (result.returncode == 0)
+                    compliance_map[group["id"]] = result.returncode == 0
         except Exception as e:
             logger.error(f"Failed to read telemetry.yaml from {registry_dir}: {e}")
             return {}

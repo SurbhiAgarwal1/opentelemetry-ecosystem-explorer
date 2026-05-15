@@ -276,7 +276,8 @@ class TestInventoryManager:
         inventory_manager.save_library_readmes(version, [("mylib-1.0", content)])
 
         readme_dir = inventory_manager.get_version_dir(version) / "library_readmes"
-        expected_file = readme_dir / f"mylib-1.0-{expected_hash}.md"
+        # "." is replaced with "_" by sanitization
+        expected_file = readme_dir / f"mylib-1_0-{expected_hash}.md"
         assert expected_file.exists()
         assert expected_file.read_text(encoding="utf-8") == content
 

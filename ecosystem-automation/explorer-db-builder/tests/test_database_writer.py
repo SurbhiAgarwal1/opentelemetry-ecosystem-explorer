@@ -464,6 +464,7 @@ class TestWriteMarkdown:
 
     def test_write_markdown_skip_existing(self, db_writer, temp_db_dir, caplog):
         import logging
+
         caplog.set_level(logging.DEBUG)
 
         content = "content"

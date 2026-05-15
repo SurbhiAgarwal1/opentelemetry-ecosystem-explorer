@@ -17,7 +17,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import yaml
-
 from explorer_db_builder.semconv_enricher import SemconvEnricher
 
 
@@ -46,9 +45,7 @@ class TestSemconvEnricher(unittest.TestCase):
         }
 
     def test_extract_version(self):
-        self.assertEqual(
-            self.enricher._extract_version("https://opentelemetry.io/schemas/1.37.0"), "1.37.0"
-        )
+        self.assertEqual(self.enricher._extract_version("https://opentelemetry.io/schemas/1.37.0"), "1.37.0")
         self.assertEqual(self.enricher._extract_version("invalid-url"), None)
         self.assertEqual(self.enricher._extract_version(""), None)
 
@@ -71,7 +68,7 @@ class TestSemconvEnricher(unittest.TestCase):
                 self.assertEqual(telemetry["file_format"], "definition/2")
                 groups = telemetry["groups"]
                 self.assertEqual(len(groups), 2)
-                
+
                 # Metric group
                 metric_group = next(g for g in groups if g["type"] == "metric")
                 self.assertEqual(metric_group["id"], "http.server.request.duration")
@@ -87,12 +84,13 @@ class TestSemconvEnricher(unittest.TestCase):
     @patch("subprocess.run")
     def test_run_weaver_check_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
-        
+
         import tempfile
+
         with tempfile.TemporaryDirectory() as temp_dir:
             self.enricher._prepare_weaver_registry(temp_dir, self.sample_instrumentation, "1.37.0")
             results = self.enricher._run_weaver_check(temp_dir)
-            
+
             self.assertTrue(results["http.server.request.duration"])
             self.assertTrue(results["test-lib.SERVER"])
 
@@ -100,10 +98,12 @@ class TestSemconvEnricher(unittest.TestCase):
     def test_run_weaver_check_failure(self, mock_run):
         # Simulate an error for the metric but not the span (simplified parser check)
         mock_run.return_value = MagicMock(
-            returncode=1, stderr="[Error] signals/telemetry.yaml: http.server.request.duration attribute 'foo' not found"
+            returncode=1,
+            stderr="[Error] signals/telemetry.yaml: http.server.request.duration attribute 'foo' not found",
         )
-        
+
         import tempfile
+
         with tempfile.TemporaryDirectory() as temp_dir:
             self.enricher._prepare_weaver_registry(temp_dir, self.sample_instrumentation, "1.37.0")
             results = self.enricher._run_weaver_check(temp_dir)
@@ -113,16 +113,13 @@ class TestSemconvEnricher(unittest.TestCase):
 
     @patch.object(SemconvEnricher, "_run_weaver_check")
     def test_enrich_instrumentation(self, mock_check):
-        mock_check.return_value = {
-            "http.server.request.duration": True,
-            "test-lib.SERVER": False
-        }
-        
+        mock_check.return_value = {"http.server.request.duration": True, "test-lib.SERVER": False}
+
         self.enricher.enrich_instrumentation(self.sample_instrumentation)
-        
+
         metric = self.sample_instrumentation["telemetry"][0]["metrics"][0]
         self.assertEqual(metric["semconv_compliance"], ["1.37.0"])
-        
+
         span = self.sample_instrumentation["telemetry"][0]["spans"][0]
         self.assertNotIn("semconv_compliance", span)
 

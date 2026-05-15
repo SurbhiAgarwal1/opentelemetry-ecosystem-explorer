@@ -14,11 +14,10 @@
 #
 """Inventory management for Java instrumentation tracking."""
 
-from collections.abc import Iterable
-from typing import Any
-
 import logging
 import re
+from collections.abc import Iterable
+from typing import Any
 
 import yaml
 from semantic_version import Version
