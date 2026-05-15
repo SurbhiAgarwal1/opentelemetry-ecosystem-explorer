@@ -104,3 +104,13 @@ export async function loadLibraryReadme(
   }
   return data;
 }
+
+export async function loadGlobalConfigurations() {
+  const data = await fetchWithCache(
+    "global-configurations",
+    `${BASE_PATH}/global-configurations.json`,
+    STORES.GLOBAL_CONFIGURATIONS
+  );
+  if (!data) throw new Error("Global configurations returned null unexpectedly");
+  return data;
+}
