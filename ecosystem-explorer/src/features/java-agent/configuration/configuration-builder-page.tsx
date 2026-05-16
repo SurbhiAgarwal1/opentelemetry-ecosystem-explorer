@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader } from "@/components/ui/Loader";
 import { BackButton } from "@/components/ui/back-button";
 import { BetaBadge } from "@/components/ui/beta-badge";
 import { PageContainer } from "@/components/layout/page-container";
@@ -305,8 +306,8 @@ export function ConfigurationBuilderPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsContent value="sdk">
             {!version || schema.loading || starter.loading ? (
-              <p className="text-muted-foreground mt-4 text-sm">Loading schema…</p>
-            ) : schema.error ? (
+              <Loader size="sm" label="Loading schema…" className="mt-4" />
+            ) : schema.error || !root ? (
               <p className="mt-4 text-sm text-red-400">Failed to load schema.</p>
             ) : starter.error ? (
               <p className="mt-4 text-sm text-red-400">Failed to load starter template.</p>
@@ -321,8 +322,8 @@ export function ConfigurationBuilderPage() {
           </TabsContent>
           <TabsContent value="instrumentation">
             {!version || schema.loading || starter.loading ? (
-              <p className="text-muted-foreground mt-4 text-sm">Loading schema…</p>
-            ) : schema.error ? (
+              <Loader size="sm" label="Loading schema…" className="mt-4" />
+            ) : schema.error || !root ? (
               <p className="mt-4 text-sm text-red-400">Failed to load schema.</p>
             ) : starter.error ? (
               <p className="mt-4 text-sm text-red-400">Failed to load starter template.</p>

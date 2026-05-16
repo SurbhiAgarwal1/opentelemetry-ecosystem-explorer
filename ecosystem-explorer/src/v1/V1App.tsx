@@ -19,6 +19,7 @@ import { Footer } from "@/components/layout/footer";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { isEnabled } from "@/lib/feature-flags";
 import { NavBar } from "@/v1/components/layout/nav-bar";
+import { Loader } from "@/components/ui/Loader";
 import "@/v1/styles/index.css";
 
 /*
@@ -90,17 +91,7 @@ export function V1App() {
       <NavBar />
       <main className="flex-1 pt-16">
         <ErrorBoundary>
-          <Suspense
-            fallback={
-              <div
-                className="flex min-h-[400px] items-center justify-center"
-                role="status"
-                aria-live="polite"
-              >
-                <div className="text-muted-foreground text-sm font-medium">Loading…</div>
-              </div>
-            }
-          >
+          <Suspense fallback={<Loader label="Loading…" />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/java-agent" element={<JavaAgentPage />} />
