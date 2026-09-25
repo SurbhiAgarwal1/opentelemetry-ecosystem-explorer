@@ -493,6 +493,7 @@ class TestIntegration:
         assert (temp_db_dir / "versions" / "1.0.0-index.json").exists()
         assert (temp_db_dir / "versions" / "2.0.0-index.json").exists()
 
+
 class TestWriteMarkdown:
     """Tests for markdown file writing."""
 
@@ -577,7 +578,6 @@ class TestWriteMarkdown:
 
         assert markdown_file.read_text(encoding="utf-8") == "# Test README\n"
         assert db_writer.files_written == 1
-
 
     def test_write_markdown_sanitization(self, db_writer, temp_db_dir):
         content = "content"
