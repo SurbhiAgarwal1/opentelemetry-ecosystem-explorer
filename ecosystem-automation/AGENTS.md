@@ -8,6 +8,7 @@ Python pipelines that watch upstream OpenTelemetry projects and write versioned 
 - `dotnet-instrumentation-watcher/` — .NET automatic instrumentation components
 - `js-instrumentation-watcher/` — JavaScript (js-contrib) instrumentations
 - `configuration-watcher/` — Declarative configuration schema
+- `conformance-watcher/` — Semantic-convention conformance reports
 - `explorer-db-builder/` — Builds the content-addressed database the frontend reads
 - `v1-registry-sync/` — Compares the collector registry against the upstream v1 registry
 - `watcher-common/` — Shared base classes for inventory and version detection
@@ -27,8 +28,8 @@ Run from the repository root:
 - `uv run ruff format ecosystem-automation/` — Format
 - `uv run collector-watcher` / `uv run java-instrumentation-watcher` /
   `uv run dotnet-instrumentation-watcher` / `uv run js-instrumentation-watcher` /
-  `uv run configuration-watcher` / `uv run explorer-db-builder` / `uv run v1-registry-sync` — Run a
-  watcher or tool
+  `uv run configuration-watcher` / `uv run conformance-watcher` / `uv run explorer-db-builder` /
+  `uv run v1-registry-sync` — Run a watcher or tool
 
 Nightly CI invokes the watchers directly via these console scripts. The `collector-watcher` and
 `configuration-watcher` also expose a `backfill` mode (`--backfill`) for re-extracting existing
@@ -49,6 +50,10 @@ non-negotiable rules:
   distribution segment. JavaScript is the exception to the per-version-directory rule: js-contrib
   packages version independently, so they are written per package as a single file —
   `javascript/{package-name}/v{version}.yaml` — rather than an aggregated per-version directory.
+  Conformance reports (`conformance/snapshots/<snapshot-id>/`) are the exception to semantic versioning:
+  upstream reports represent publication commits rather than semver releases. They are stored
+  content-addressed by SHA-256 digest under `ecosystem-registry/conformance/snapshots/<snapshot-id>/`
+  along with `index.yaml` and `current.yaml` managed by `SnapshotInventoryManager`.
 
 ## Schema discipline
 
