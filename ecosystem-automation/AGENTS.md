@@ -7,6 +7,7 @@ Python pipelines that watch upstream OpenTelemetry projects and write versioned 
 - `java-instrumentation-watcher/` — Java agent instrumentations
 - `dotnet-instrumentation-watcher/` — .NET automatic instrumentation components
 - `js-instrumentation-watcher/` — JavaScript (js-contrib) instrumentations
+- `python-instrumentation-watcher/` — Python (python-contrib) instrumentations
 - `configuration-watcher/` — Declarative configuration schema
 - `conformance-watcher/` — Semantic-convention conformance reports
 - `explorer-db-builder/` — Builds the content-addressed database the frontend reads
@@ -28,8 +29,8 @@ Run from the repository root:
 - `uv run ruff format ecosystem-automation/` — Format
 - `uv run collector-watcher` / `uv run java-instrumentation-watcher` /
   `uv run dotnet-instrumentation-watcher` / `uv run js-instrumentation-watcher` /
-  `uv run configuration-watcher` / `uv run conformance-watcher` / `uv run explorer-db-builder` /
-  `uv run v1-registry-sync` — Run a watcher or tool
+  `uv run python-instrumentation-watcher` / `uv run configuration-watcher` /
+  `uv run explorer-db-builder` / `uv run v1-registry-sync` — Run a watcher or tool
 
 Nightly CI invokes the watchers directly via these console scripts. The `collector-watcher` and
 `configuration-watcher` also expose a `backfill` mode (`--backfill`) for re-extracting existing
@@ -47,13 +48,11 @@ non-negotiable rules:
   `SNAPSHOT` prerelease tag for nightly builds. The `{distribution}` segment applies only where an
   ecosystem ships multiple distributions: collector (`collector/{core,contrib}/v…`) and Java
   (`java/javaagent/v…`). Configuration (`configuration/v…`) and .NET (`dotnet/v…`) have no
-  distribution segment. JavaScript is the exception to the per-version-directory rule: js-contrib
-  packages version independently, so they are written per package as a single file —
-  `javascript/{package-name}/v{version}.yaml` — rather than an aggregated per-version directory.
-  Conformance reports (`conformance/snapshots/<snapshot-id>/`) are the exception to semantic versioning:
-  upstream reports represent publication commits rather than semver releases. They are stored
-  content-addressed by SHA-256 digest under `ecosystem-registry/conformance/snapshots/<snapshot-id>/`
-  along with `index.yaml` and `current.yaml` managed by `SnapshotInventoryManager`.
+  distribution segment. JavaScript and Python are exceptions to the per-version-directory rule:
+  js-contrib and python-contrib packages version independently (Python via a hybrid
+  lockstep/independent model — see `projects/135-python-instrumentation/02-schema-design.md`), so
+  they are written per package as a single file — `javascript/{package-name}/v{version}.yaml` /
+  `python/{package-name}/v{version}.yaml` — rather than an aggregated per-version directory.
 
 ## Schema discipline
 
