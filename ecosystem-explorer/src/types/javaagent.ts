@@ -251,6 +251,8 @@ export interface Attribute {
     | "LONG_ARRAY"
     | "DOUBLE_ARRAY"
     | "BOOLEAN_ARRAY";
+  /** Semantic convention versions this attribute is compliant with. */
+  semconv_compliance?: string[];
 }
 
 // Telemetry comparison types

@@ -209,7 +209,7 @@ class SemconvEnricher:
                 yaml.dump(telemetry_data, f)
 
     def _run_weaver_check(self, registry_dir: str) -> Dict[str, bool]:
-        """Runs weaver registry check and returns a map of signal ID to compliance status."""
+        """Runs weaver registry check and returns a map of signal/attribute ID to compliance status."""
         cmd = [self.weaver_path, "registry", "check", "-r", registry_dir]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # noqa: S603
@@ -224,19 +224,56 @@ class SemconvEnricher:
         try:
             with open(os.path.join(registry_dir, "telemetry.yaml")) as f:
                 telemetry_data = yaml.safe_load(f)
-                for group in telemetry_data.get("groups", []):
-                    compliance_map[group["id"]] = result.returncode == 0
         except Exception as e:
             logger.error(f"Failed to read telemetry.yaml from {registry_dir}: {e}")
             return {}
 
-        if result.returncode != 0:
-            logger.debug(f"Weaver reported errors (exit code {result.returncode}):\n{result.stderr}")
+        groups = telemetry_data.get("groups", [])
+        output_text = f"{result.stdout or ''}\n{result.stderr or ''}"
 
-            # Heuristic: if an ID appears in an error line, mark it as non-compliant
-            for signal_id in compliance_map.keys():
-                if signal_id in result.stderr:
-                    compliance_map[signal_id] = False
+        if result.returncode == 0:
+            for group in groups:
+                group_id = group["id"]
+                compliance_map[group_id] = True
+                for attr in group.get("attributes") or []:
+                    attr_ref = attr.get("ref")
+                    if attr_ref:
+                        compliance_map[f"{group_id}::{attr_ref}"] = True
+        else:
+            logger.debug(f"Weaver reported errors (exit code {result.returncode}):\n{output_text}")
+
+            has_validation_errors = any(
+                group["id"] in output_text
+                or any(attr.get("ref", "") in output_text for attr in group.get("attributes") or [])
+                for group in groups
+            )
+
+            if has_validation_errors:
+                for group in groups:
+                    group_id = group["id"]
+                    group_in_output = group_id in output_text
+                    group_has_attr_error = False
+
+                    for attr in group.get("attributes") or []:
+                        attr_ref = attr.get("ref")
+                        if not attr_ref:
+                            continue
+                        attr_key = f"{group_id}::{attr_ref}"
+                        if attr_ref in output_text:
+                            group_has_attr_error = True
+                            compliance_map[attr_key] = False
+                        else:
+                            compliance_map[attr_key] = True
+
+                    compliance_map[group_id] = not (group_in_output or group_has_attr_error)
+            else:
+                for group in groups:
+                    group_id = group["id"]
+                    compliance_map[group_id] = False
+                    for attr in group.get("attributes") or []:
+                        attr_ref = attr.get("ref")
+                        if attr_ref:
+                            compliance_map[f"{group_id}::{attr_ref}"] = False
 
         return compliance_map
 
@@ -246,14 +283,35 @@ class SemconvEnricher:
         """Applies compliance results back to the instrumentation data."""
         telemetry_entries = instrumentation.get("telemetry", [])
         for entry in telemetry_entries:
-            for metric in entry.get("metrics", []):
-                if results.get(metric.get("name"), False):
-                    metric.setdefault("semconv_compliance", []).append(version)
+            for metric in entry.get("metrics") or []:
+                metric_name = metric.get("name")
+                metric_compliant = results.get(metric_name, False)
+                if metric_compliant:
+                    if version not in metric.setdefault("semconv_compliance", []):
+                        metric["semconv_compliance"].append(version)
 
-            for span in entry.get("spans", []):
+                for attr in metric.get("attributes") or []:
+                    attr_name = attr.get("name")
+                    attr_key = f"{metric_name}::{attr_name}"
+                    attr_compliant = results.get(attr_key, metric_compliant)
+                    if attr_compliant:
+                        if version not in attr.setdefault("semconv_compliance", []):
+                            attr["semconv_compliance"].append(version)
+
+            for span in entry.get("spans") or []:
                 span_id = f"{instrumentation.get('name')}.{span.get('span_kind', 'unknown')}"
-                if results.get(span_id, False):
-                    span.setdefault("semconv_compliance", []).append(version)
+                span_compliant = results.get(span_id, False)
+                if span_compliant:
+                    if version not in span.setdefault("semconv_compliance", []):
+                        span["semconv_compliance"].append(version)
+
+                for attr in span.get("attributes") or []:
+                    attr_name = attr.get("name")
+                    attr_key = f"{span_id}::{attr_name}"
+                    attr_compliant = results.get(attr_key, span_compliant)
+                    if attr_compliant:
+                        if version not in attr.setdefault("semconv_compliance", []):
+                            attr["semconv_compliance"].append(version)
 
     def _apply_compliance_metadata_batch(
         self, instrumentations: list[Dict[str, Any]], results: Dict[str, bool], version: str
@@ -262,12 +320,32 @@ class SemconvEnricher:
         for inst in instrumentations:
             inst_name = inst.get("name", "unknown")
             for entry in inst.get("telemetry", []):
-                for metric in entry.get("metrics", []):
+                for metric in entry.get("metrics") or []:
                     metric_id = f"{inst_name}.{metric.get('name')}"
-                    if results.get(metric_id, False):
-                        metric.setdefault("semconv_compliance", []).append(version)
+                    metric_compliant = results.get(metric_id, False)
+                    if metric_compliant:
+                        if version not in metric.setdefault("semconv_compliance", []):
+                            metric["semconv_compliance"].append(version)
 
-                for span in entry.get("spans", []):
+                    for attr in metric.get("attributes") or []:
+                        attr_name = attr.get("name")
+                        attr_key = f"{metric_id}::{attr_name}"
+                        attr_compliant = results.get(attr_key, metric_compliant)
+                        if attr_compliant:
+                            if version not in attr.setdefault("semconv_compliance", []):
+                                attr["semconv_compliance"].append(version)
+
+                for span in entry.get("spans") or []:
                     span_id = f"{inst_name}.{span.get('span_kind', 'unknown')}"
-                    if results.get(span_id, False):
-                        span.setdefault("semconv_compliance", []).append(version)
+                    span_compliant = results.get(span_id, False)
+                    if span_compliant:
+                        if version not in span.setdefault("semconv_compliance", []):
+                            span["semconv_compliance"].append(version)
+
+                    for attr in span.get("attributes") or []:
+                        attr_name = attr.get("name")
+                        attr_key = f"{span_id}::{attr_name}"
+                        attr_compliant = results.get(attr_key, span_compliant)
+                        if attr_compliant:
+                            if version not in attr.setdefault("semconv_compliance", []):
+                                attr["semconv_compliance"].append(version)

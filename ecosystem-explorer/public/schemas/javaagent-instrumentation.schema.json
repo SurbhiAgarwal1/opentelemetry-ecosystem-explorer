@@ -223,9 +223,16 @@
                           "STRING_ARRAY"
                         ],
                         "type": "string"
+                      },
+                      "semconv_compliance": {
+                        "description": "Semantic convention versions this attribute is compliant with.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     },
-                    "propertyOrder": ["name", "type"],
+                    "propertyOrder": ["name", "type", "semconv_compliance"],
                     "required": ["name", "type"]
                   }
                 },
@@ -285,9 +292,16 @@
                           "STRING_ARRAY"
                         ],
                         "type": "string"
+                      },
+                      "semconv_compliance": {
+                        "description": "Semantic convention versions this attribute is compliant with.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     },
-                    "propertyOrder": ["name", "type"],
+                    "propertyOrder": ["name", "type", "semconv_compliance"],
                     "required": ["name", "type"]
                   }
                 },

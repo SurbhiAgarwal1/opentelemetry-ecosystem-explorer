@@ -134,7 +134,7 @@ class TestSemconvEnricher(unittest.TestCase):
 
     @patch("subprocess.run")
     def test_run_weaver_check_success(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             self.enricher._prepare_weaver_registry(temp_dir, self.sample_instrumentation, "1.37.0")
@@ -142,11 +142,14 @@ class TestSemconvEnricher(unittest.TestCase):
 
             self.assertTrue(results["http.server.request.duration"])
             self.assertTrue(results["test-lib.SERVER"])
+            self.assertTrue(results["http.server.request.duration::http.request.method"])
+            self.assertTrue(results["test-lib.SERVER::http.request.method"])
 
     @patch("subprocess.run")
     def test_run_weaver_check_failure(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=1,
+            stdout="",
             stderr="[Error] signals/telemetry.yaml: http.server.request.duration attribute 'foo' not found",
         )
 
@@ -155,7 +158,25 @@ class TestSemconvEnricher(unittest.TestCase):
             results = self.enricher._run_weaver_check(temp_dir)
 
             self.assertFalse(results["http.server.request.duration"])
+            self.assertTrue(results["test-lib.SERVER"])
+            self.assertTrue(results["test-lib.SERVER::http.request.method"])
+
+    @patch("subprocess.run")
+    def test_run_weaver_check_fatal_error(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="fatal: could not resolve git dependency otel",
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.enricher._prepare_weaver_registry(temp_dir, self.sample_instrumentation, "1.37.0")
+            results = self.enricher._run_weaver_check(temp_dir)
+
+            self.assertFalse(results["http.server.request.duration"])
             self.assertFalse(results["test-lib.SERVER"])
+            self.assertFalse(results["http.server.request.duration::http.request.method"])
+            self.assertFalse(results["test-lib.SERVER::http.request.method"])
 
     @patch.object(SemconvEnricher, "_run_weaver_check")
     def test_enrich_instrumentation(self, mock_check):
@@ -165,9 +186,43 @@ class TestSemconvEnricher(unittest.TestCase):
 
         metric = self.sample_instrumentation["telemetry"][0]["metrics"][0]
         self.assertEqual(metric["semconv_compliance"], ["1.37.0"])
+        self.assertEqual(metric["attributes"][0]["semconv_compliance"], ["1.37.0"])
 
         span = self.sample_instrumentation["telemetry"][0]["spans"][0]
         self.assertNotIn("semconv_compliance", span)
+        self.assertNotIn("semconv_compliance", span["attributes"][0])
+
+    @patch.object(SemconvEnricher, "_run_weaver_check")
+    def test_enrich_instrumentation_partial_attributes(self, mock_check):
+        sample = {
+            "name": "test-lib",
+            "scope": {"schema_url": "https://opentelemetry.io/schemas/1.37.0"},
+            "telemetry": [
+                {
+                    "metrics": [
+                        {
+                            "name": "http.server.request.duration",
+                            "attributes": [
+                                {"name": "http.request.method"},
+                                {"name": "custom.internal.id"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        mock_check.return_value = {
+            "http.server.request.duration": False,
+            "http.server.request.duration::http.request.method": True,
+            "http.server.request.duration::custom.internal.id": False,
+        }
+
+        self.enricher.enrich_instrumentation(sample)
+
+        metric = sample["telemetry"][0]["metrics"][0]
+        self.assertNotIn("semconv_compliance", metric)
+        self.assertEqual(metric["attributes"][0]["semconv_compliance"], ["1.37.0"])
+        self.assertNotIn("semconv_compliance", metric["attributes"][1])
 
     def test_enrich_instrumentation_no_telemetry(self):
         instrumentation = {"name": "empty"}
@@ -190,8 +245,8 @@ class TestSemconvEnricher(unittest.TestCase):
                     "scope": {"schema_url": "https://opentelemetry.io/schemas/1.37.0"},
                     "telemetry": [
                         {
-                            "metrics": [{"name": "metric.one"}],
-                            "spans": [{"span_kind": "SERVER"}],
+                            "metrics": [{"name": "metric.one", "attributes": [{"name": "attr.a"}]}],
+                            "spans": [{"span_kind": "SERVER", "attributes": [{"name": "attr.b"}]}],
                         }
                     ],
                 }
@@ -202,8 +257,8 @@ class TestSemconvEnricher(unittest.TestCase):
                     "scope": {"schema_url": "https://opentelemetry.io/schemas/1.37.0"},
                     "telemetry": [
                         {
-                            "metrics": [{"name": "metric.two"}],
-                            "spans": [{"span_kind": "CLIENT"}],
+                            "metrics": [{"name": "metric.two", "attributes": [{"name": "attr.c"}]}],
+                            "spans": [{"span_kind": "CLIENT", "attributes": [{"name": "attr.d"}]}],
                         }
                     ],
                 }
@@ -214,10 +269,26 @@ class TestSemconvEnricher(unittest.TestCase):
 
         # lib-one.metric.one is True
         self.assertEqual(inventory["libraries"][0]["telemetry"][0]["metrics"][0]["semconv_compliance"], ["1.37.0"])
+        self.assertEqual(
+            inventory["libraries"][0]["telemetry"][0]["metrics"][0]["attributes"][0]["semconv_compliance"],
+            ["1.37.0"],
+        )
         # lib-one.SERVER is False
         self.assertNotIn("semconv_compliance", inventory["libraries"][0]["telemetry"][0]["spans"][0])
+        self.assertNotIn(
+            "semconv_compliance",
+            inventory["libraries"][0]["telemetry"][0]["spans"][0]["attributes"][0],
+        )
 
         # lib-two.metric.two is True
         self.assertEqual(inventory["custom"][0]["telemetry"][0]["metrics"][0]["semconv_compliance"], ["1.37.0"])
+        self.assertEqual(
+            inventory["custom"][0]["telemetry"][0]["metrics"][0]["attributes"][0]["semconv_compliance"],
+            ["1.37.0"],
+        )
         # lib-two.CLIENT is True
         self.assertEqual(inventory["custom"][0]["telemetry"][0]["spans"][0]["semconv_compliance"], ["1.37.0"])
+        self.assertEqual(
+            inventory["custom"][0]["telemetry"][0]["spans"][0]["attributes"][0]["semconv_compliance"],
+            ["1.37.0"],
+        )

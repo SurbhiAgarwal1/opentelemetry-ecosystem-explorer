@@ -37,8 +37,8 @@ from explorer_db_builder.instrumentation_transformer import (
     transform_instrumentation_format,
 )
 from explorer_db_builder.metadata_backfiller import backfill_metadata
-from explorer_db_builder.telemetry_when_corrections import apply_telemetry_when_corrections
 from explorer_db_builder.semconv_enricher import SemconvEnricher
+from explorer_db_builder.telemetry_when_corrections import apply_telemetry_when_corrections
 
 logger = logging.getLogger(__name__)
 
