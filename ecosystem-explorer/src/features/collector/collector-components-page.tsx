@@ -186,10 +186,15 @@ function CollectorComponentsContent({ urlVersion }: { urlVersion?: string }) {
   const availableVersions = useMemo(() => {
     if (!versionData?.versions) return [];
     if (distributionFilter === "all") return versionData.versions;
+    // Keep a pinned version listed even if the distribution isn't in it, so the select shows the
+    // release whose data is loaded rather than falling back to "Latest".
     return versionData.versions.filter(
-      (v) => !v.distributions || v.distributions.includes(distributionFilter)
+      (v) =>
+        !v.distributions ||
+        v.distributions.includes(distributionFilter) ||
+        v.version === currentVersion
     );
-  }, [versionData, distributionFilter]);
+  }, [versionData, distributionFilter, currentVersion]);
 
   const selectedVersion = useMemo(() => {
     if (deprecatedView) return "deprecated";
@@ -451,9 +456,9 @@ function CollectorComponentsContent({ urlVersion }: { urlVersion?: string }) {
                     disabled={versionsLoading}
                     className="border-border/60 bg-background/80 focus:border-primary/50 focus:ring-primary/20 w-[160px] cursor-pointer appearance-none rounded-lg border py-2.5 pr-10 pl-3 text-sm font-medium backdrop-blur-sm transition-all duration-200 focus:ring-2 focus:outline-none disabled:opacity-50"
                   >
-                    {/* Gated on the version list: `currentVersion` is "" until it resolves, and a
-                        select falls back to displaying its first option when the value matches none —
-                        so an ungated option here labels the loading state "Deprecated". */}
+                    {/* Gated on the version list: before it resolves there is no "" option to match,
+                        and a select falls back to displaying its first option when the value matches
+                        none — so an ungated option here labels the loading state "Deprecated". */}
                     {versionData && (
                       <option value="deprecated">{t("filters.version.deprecated")}</option>
                     )}

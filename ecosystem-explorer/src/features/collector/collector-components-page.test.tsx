@@ -209,6 +209,13 @@ describe("CollectorComponentsPage", () => {
     expect(options).toEqual(["deprecated", "", "0.149.0"]);
   });
 
+  it("shows a pinned version the selected distribution isn't in, not 'Latest'", () => {
+    renderPage("/collector/components/0.150.0?distribution=contrib");
+
+    expect(useCollectorComponents).toHaveBeenCalledWith("0.150.0");
+    expect(screen.getByRole("combobox", { name: "Version" })).toHaveValue("0.150.0");
+  });
+
   it("preserves deprecated version when switching distribution filter to all", async () => {
     const user = userEvent.setup();
     renderPage("/collector/components?distribution=core&version=deprecated");
@@ -225,9 +232,9 @@ describe("CollectorComponentsPage", () => {
 
     renderPage("/collector/components?distribution=core");
 
-    // `currentVersion` is "" until the version list resolves. A select falls back to displaying its
-    // first option when its value matches none, so an ungated "deprecated" option would make the
-    // control read "Deprecated" while the latest-components view is what's actually loading.
+    // The "" (Latest) option doesn't exist until the version list resolves. A select falls back to
+    // displaying its first option when its value matches none, so an ungated "deprecated" option
+    // would make the control read "Deprecated" while the active catalog is what's actually loading.
     // Scoped to the version select: the stability filter has its own "Deprecated" option.
     const select = screen.getByRole("combobox", { name: "Version" }) as HTMLSelectElement;
     expect(within(select).queryByRole("option", { name: "Deprecated" })).not.toBeInTheDocument();
