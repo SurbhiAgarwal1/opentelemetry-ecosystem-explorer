@@ -80,6 +80,52 @@ and writes the inventory. `ScanRepo` walks the two subtrees for `go.mod` files (
 `target_module`, `display_name`). `ScanMetadataRepo` instead walks the repository for
 `metadata.yaml` files and parses them directly.
 
+## Go configuration metadata
+
+For the `metadata` scanning strategy, each source configuration has exactly one of `name` or `ref`.
+`name` is the declarative path relative to `instrumentation/development`; `type` is `boolean`,
+`string`, `int`, `map`, `list`, or `structured_list`. `schema` describes structured-list items. The
+Go format does not duplicate these as `declarative_name`, `declarative_type`, or
+`declarative_schema`, and does not accept entries without a selector.
+
+```yaml
+configurations:
+  - name: go.my_instrumentation.enabled
+    type: boolean
+    default: "true"
+  - ref: general.http.client.request_captured_headers
+```
+
+The root `targets.yaml` configures one central otelc catalog source (`url`, `ref`, and path). The
+watcher checks it out and loads the catalog once, then passes the parsed definitions to each
+metadata scan; a scanned instrumentation repository does not need its own catalog file. General
+definitions derive from a pinned OpenTelemetry Configuration release, and otelc owns Go-specific
+definitions. Unknown refs and missing or invalid catalogs fail with source-path diagnostics.
+Inline-only metadata can be scanned without a catalog. Scanning never runs otelc code.
+
+The configured ref must contain the catalog file. For example:
+
+```yaml
+configuration_catalog:
+  url: https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation.git
+  ref: main
+  path: tool/internal/configuration/catalog.yaml
+```
+
+Input refs are catalog-only and cannot set non-empty inline configuration values. Inventory records
+preserve the raw `ref` and carry resolved `name`, `type`, description, and schema fields. Loading
+inventory does not reapply source-only selector exclusivity. `file_format` stays at `0.1`;
+inventories without configurations remain readable and are not backfilled. Top-level defaults remain
+strings (boolean/numeric YAML scalars are normalized), while schema property defaults and examples
+retain their native YAML types. Configuration definitions may include optional `deprecated` and
+`replaced_by` metadata. `replaced_by` requires `deprecated: true`, and deprecated entries may omit a
+replacement. The watcher preserves these fields through ref resolution and inventory serialization;
+parser compatibility for removed fields and user-facing Explorer deprecation display are separate
+concerns. Optional `default_behavior` describes prose behavior, not a machine-readable default. This
+watcher publishes Go inventory; it does not change Java's metadata format or add a Go
+UI/database-builder integration. Collection defaults are YAML-encoded strings such as `"[]"` or
+`"{}"`; structured-list defaults must match their item schema.
+
 ## Package layout
 
 | Package           | Responsibility                                                                   |
