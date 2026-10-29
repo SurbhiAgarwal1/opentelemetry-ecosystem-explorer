@@ -351,52 +351,6 @@ def test_process_latest_release_new_version(collector_sync, sample_components):
         assert str(result) == "0.112.0"
 
 
-def test_update_snapshot_version(collector_sync, sample_components, temp_inventory_dir):
-    with patch("collector_watcher.collector_sync.ComponentScanner") as mock_scanner:
-        mock_instance = Mock()
-        mock_instance.scan_all_components.return_value = sample_components
-        mock_scanner.return_value = mock_instance
-
-        # Create an old snapshot
-        old_snapshot = Version(major=0, minor=111, patch=0, prerelease=("SNAPSHOT",))
-        collector_sync.save_version("core", old_snapshot, sample_components)
-        assert collector_sync.inventory_manager.version_exists("core", old_snapshot)
-
-        # Update snapshot
-        result = collector_sync.update_snapshot("core")
-
-        # Old snapshot should be removed
-        assert not collector_sync.inventory_manager.version_exists("core", old_snapshot)
-
-        # New snapshot should exist
-        assert result.prerelease
-        assert collector_sync.inventory_manager.version_exists("core", result)
-
-
-def test_cleanup_multiple_snapshots(collector_sync, sample_components):
-    snapshots = [
-        Version(major=0, minor=110, patch=0, prerelease=("SNAPSHOT",)),
-        Version(major=0, minor=111, patch=0, prerelease=("SNAPSHOT",)),
-        Version(major=0, minor=112, patch=0, prerelease=("SNAPSHOT",)),
-    ]
-
-    for snapshot in snapshots:
-        collector_sync.save_version("core", snapshot, sample_components)
-
-    for snapshot in snapshots:
-        assert collector_sync.inventory_manager.version_exists("core", snapshot)
-
-    with patch("collector_watcher.collector_sync.ComponentScanner") as mock_scanner:
-        mock_instance = Mock()
-        mock_instance.scan_all_components.return_value = sample_components
-        mock_scanner.return_value = mock_instance
-
-        collector_sync.update_snapshot("core")
-
-    for snapshot in snapshots:
-        assert not collector_sync.inventory_manager.version_exists("core", snapshot)
-
-
 def test_complete_sync_workflow(collector_sync, sample_components):
     with patch("collector_watcher.collector_sync.ComponentScanner") as mock_scanner:
         mock_instance = Mock()
@@ -406,15 +360,11 @@ def test_complete_sync_workflow(collector_sync, sample_components):
         result = collector_sync.sync()
 
         assert len(result["new_releases"]) == 2
-        assert len(result["snapshots_updated"]) == 2
+        assert "snapshots_updated" not in result
 
         release_dists = [item["distribution"] for item in result["new_releases"]]
         assert "core" in release_dists
         assert "contrib" in release_dists
-
-        snapshot_dists = [item["distribution"] for item in result["snapshots_updated"]]
-        assert "core" in snapshot_dists
-        assert "contrib" in snapshot_dists
 
 
 def test_sync_no_new_releases(collector_sync, sample_components):
@@ -430,8 +380,7 @@ def test_sync_no_new_releases(collector_sync, sample_components):
 
         # No new releases
         assert len(result["new_releases"]) == 0
-        # But snapshots should still be updated
-        assert len(result["snapshots_updated"]) == 2
+        assert "snapshots_updated" not in result
 
 
 def test_scan_version_snapshot_checkout(collector_sync, sample_components):
