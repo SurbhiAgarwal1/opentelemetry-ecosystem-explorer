@@ -96,31 +96,11 @@ class TestConfigurationSync:
         assert (version_dir / "meter_provider.yaml").exists()
         assert (version_dir / "logger_provider.yaml").exists()
 
-    def test_update_snapshot(self, config_sync):
-        result = config_sync.update_snapshot()
-
-        assert result.prerelease
-        assert config_sync.inventory_manager.version_exists(result)
-
-    def test_update_snapshot_cleans_old_snapshots(self, config_sync, temp_inventory_dir):
-        # Manually create an old snapshot that differs from the current one
-        old_snapshot = Version(major=0, minor=99, patch=0, prerelease=("SNAPSHOT",))
-        old_dir = temp_inventory_dir / f"v{old_snapshot}"
-        old_dir.mkdir(parents=True)
-        (old_dir / "old.yaml").write_text("old: true")
-        assert config_sync.inventory_manager.version_exists(old_snapshot)
-
-        # Update snapshot should clean the old one
-        new_snapshot = config_sync.update_snapshot()
-
-        assert not config_sync.inventory_manager.version_exists(old_snapshot)
-        assert config_sync.inventory_manager.version_exists(new_snapshot)
-
     def test_complete_sync_workflow(self, config_sync):
         result = config_sync.sync()
 
         assert result["new_release"] == "1.0.0"
-        assert result["snapshot_updated"] is not None
+        assert "snapshot_updated" not in result
 
     def test_sync_no_new_releases(self, config_sync):
         config_sync.sync()
@@ -128,7 +108,7 @@ class TestConfigurationSync:
         result = config_sync.sync()
 
         assert result["new_release"] is None
-        assert result["snapshot_updated"] is not None
+        assert "snapshot_updated" not in result
 
     def test_backfill_specific_version(self, config_sync):
         # First sync to populate
@@ -156,18 +136,6 @@ class TestEmptyCopySafety:
 
         with pytest.raises(ValueError):
             config_sync.process_latest_release()
-
-    def test_update_snapshot_preserves_existing_on_empty_copy(self, config_sync, monkeypatch):
-        config_sync.update_snapshot()
-        existing = config_sync.inventory_manager.list_snapshot_versions()
-        assert existing
-
-        monkeypatch.setattr(config_sync.schema_copier, "copy_schemas", lambda *a, **k: [])
-        with pytest.raises(ValueError):
-            config_sync.update_snapshot()
-
-        for snapshot in existing:
-            assert config_sync.inventory_manager.version_exists(snapshot)
 
     def test_backfill_preserves_existing_version_on_empty_copy(self, config_sync, monkeypatch):
         config_sync.sync()

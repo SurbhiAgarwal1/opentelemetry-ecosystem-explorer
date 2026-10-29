@@ -12,7 +12,7 @@ Process:
 
 - Clone or update a local copy of the opentelemetry-configuration repository.
 - Copy all YAML schema files from the `schema/` directory.
-- Create or update versioned snapshots in the `ecosystem-registry/configuration` directory.
+- Create or update versioned releases in the `ecosystem-registry/configuration` directory.
 
 You can pass in a location of the repository via the `OTEL_CONFIGURATION_PATH` environment variable,
 or it will default to cloning into `tmp_repos/`.
@@ -30,7 +30,6 @@ uv run configuration-watcher
 This will:
 
 - Process the latest release version (if not already tracked)
-- Update the SNAPSHOT version from the main branch
 - Skip versions that already exist in the inventory
 
 ### Backfill Mode
