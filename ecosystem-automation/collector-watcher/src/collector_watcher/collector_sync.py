@@ -39,7 +39,6 @@ class CollectorSync:
     Handles:
     - Detecting latest release versions
     - Scanning component metadata from repositories
-    - Creating SNAPSHOT versions from main branch
     - Managing inventory storage
     """
 
@@ -408,48 +407,8 @@ class CollectorSync:
 
         return latest
 
-    def update_snapshot(self, distribution: DistributionName) -> Version:
-        """
-        Update or create the SNAPSHOT version for a distribution.
-
-        This:
-        1. Determines next snapshot version
-        2. Scans main branch
-        3. Cleans up old snapshots
-        4. Saves as new snapshot
-
-        Args:
-            distribution: Distribution name
-
-        Returns:
-            Snapshot version that was created
-        """
-        detector = self.version_detectors[distribution]
-
-        snapshot_version = detector.determine_next_snapshot_version()
-        logger.info("")
-        logger.info("Updating %s %s...", distribution, snapshot_version)
-
-        self.initialize_previous_version(distribution)
-        components = self.scan_version(distribution, snapshot_version, checkout=True)
-
-        logger.info("")
-        logger.info("Cleaning up old %s snapshots...", distribution)
-        removed = self.inventory_manager.cleanup_snapshots(distribution)
-        if removed > 0:
-            logger.info("  Removed %d old snapshot(s)", removed)
-
-        self.save_version(distribution, snapshot_version, components)
-        self.detect_and_track_deprecations(distribution, snapshot_version, components)
-
-        return snapshot_version
-
-    def _process_distribution_sync(self, distribution: DistributionName) -> tuple[Version | None, Version]:
-        latest = self.process_latest_release(distribution)
-
-        snapshot = self.update_snapshot(distribution)
-
-        return (latest, snapshot)
+    def _process_distribution_sync(self, distribution: DistributionName) -> Version | None:
+        return self.process_latest_release(distribution)
 
     def sync(self) -> dict[str, Any]:
         """
@@ -458,14 +417,12 @@ class CollectorSync:
         This performs the complete sync workflow:
         1. Check for new releases in each distribution
         2. Process any new releases
-        3. Update snapshots for each distribution
 
         Returns:
             Summary of what was processed
         """
         summary = {
             "new_releases": [],
-            "snapshots_updated": [],
         }
 
         logger.info("=" * 60)
@@ -479,17 +436,16 @@ class CollectorSync:
                 logger.info("Distribution: %s", distribution.upper())
                 logger.info("=" * 60)
 
-                latest, snapshot = self._process_distribution_sync(distribution)
-                distribution_results[distribution] = (latest, snapshot)
+                latest = self._process_distribution_sync(distribution)
+                distribution_results[distribution] = latest
 
         except Exception as e:
             logger.error("Error processing distributions: %s", e)
             raise
 
-        for distribution, (latest, snapshot) in distribution_results.items():
+        for distribution, latest in distribution_results.items():
             if latest:
                 summary["new_releases"].append({"distribution": distribution, "version": str(latest)})
-            summary["snapshots_updated"].append({"distribution": distribution, "version": str(snapshot)})
 
         logger.info("")
         logger.info("=" * 60)
@@ -497,9 +453,6 @@ class CollectorSync:
         logger.info("=" * 60)
         logger.info("New releases processed: %d", len(summary["new_releases"]))
         for item in summary["new_releases"]:
-            logger.info("  - %s: %s", item["distribution"], item["version"])
-        logger.info("Snapshots updated: %d", len(summary["snapshots_updated"]))
-        for item in summary["snapshots_updated"]:
             logger.info("  - %s: %s", item["distribution"], item["version"])
 
         self.inventory_manager.save_deprecations(self.deprecations)
@@ -580,7 +533,7 @@ class CollectorSync:
             prune_unlisted: When True, delete existing release versions not in the provided
                             list for each distribution before backfilling. Requires an explicit
                             version list per distribution (distributions mapped to None are left
-                            untouched). SNAPSHOT versions are always kept.
+                            untouched).
 
         Returns:
             Summary of backfill operation

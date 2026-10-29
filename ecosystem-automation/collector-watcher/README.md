@@ -48,7 +48,6 @@ uv run collector-watcher
 This will:
 
 - Process the latest release version for each distribution (if not already tracked)
-- Update the SNAPSHOT version from the main branch
 - Skip component metadata processing for versions already in the inventory
 - Retry missing `component-readmes.yaml` indexes for all tracked releases using their own tags.
   Completed indexes (including empty maps) are skipped; README write failures are logged and retried
@@ -95,7 +94,7 @@ uv run collector-watcher --backfill --versions "0.144.0,0.145.0"
 #### Prune Unlisted Versions
 
 Reduce the registry to exactly the listed versions — regenerate them and delete every other release
-version (e.g. after raising the minimum supported version). SNAPSHOT versions are always kept:
+version (e.g. after raising the minimum supported version):
 
 ```bash
 uv run collector-watcher --backfill --versions "0.156.0,0.157.0" --prune-unlisted
@@ -109,8 +108,8 @@ exits with an error rather than wiping the registry.
 - `--backfill` - Enable backfill mode (regenerates existing versions)
 - `--distribution {core,contrib}` - Target a specific distribution
 - `--versions VERSION_LIST` - Comma-separated list of versions (e.g., "0.144.0,0.145.0")
-- `--prune-unlisted` - Delete existing release versions not in `--versions` before backfilling
-  (SNAPSHOTs kept); requires `--backfill` and `--versions`
+- `--prune-unlisted` - Delete existing release versions not in `--versions` before backfilling;
+  requires `--backfill` and `--versions`
 - `--inventory-dir PATH` - Custom path to inventory directory (default:
   ecosystem-registry/collector)
 
