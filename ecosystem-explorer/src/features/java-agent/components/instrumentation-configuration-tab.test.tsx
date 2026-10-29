@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { beforeAll, afterEach, describe, it, expect, vi } from "vitest";
+import { beforeAll, afterEach, describe, it, expect, vi } from "vite-plus/test";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Configuration } from "@/types/javaagent";
@@ -137,6 +137,19 @@ describe("InstrumentationConfigurationTab", () => {
   it("renders boolean defaults as their string form", () => {
     render(<InstrumentationConfigurationTab configurations={[stableDevConfig]} />);
     expect(screen.getByText("false")).toBeInTheDocument();
+  });
+
+  it("omits the Default row when the configuration has no default", () => {
+    const noDefaultConfig: Configuration = {
+      name: "otel.instrumentation.jdbc.query-sanitization.enabled",
+      declarative_name: "java.jdbc.query_sanitization.enabled",
+      description: "Enables query sanitization for database queries.",
+      type: "boolean",
+    };
+    render(<InstrumentationConfigurationTab configurations={[noDefaultConfig]} />);
+    expect(screen.getByText(noDefaultConfig.description)).toBeInTheDocument();
+    expect(screen.queryByText("Default:")).toBeNull();
+    expect(screen.queryByText("(empty)")).toBeNull();
   });
 
   it("renders an Examples section when the examples array is non-empty", () => {

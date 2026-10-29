@@ -58,15 +58,13 @@ class InstrumentationSync:
         Synchronize Java instrumentation metadata.
 
         This will:
-        1. Process the latest release (if new)
-        2. Update the snapshot from main branch
+        1. Backfill missing release README indexes and process the latest release (if new)
 
         Returns:
             Summary dictionary with processing results
         """
         summary = {
             "new_release": None,
-            "snapshot_updated": None,
         }
 
         logger.info("Checking for latest release...")
@@ -77,16 +75,11 @@ class InstrumentationSync:
         else:
             logger.info("✓ Latest release already tracked")
 
-        logger.info("Updating snapshot from main branch...")
-        snapshot_version = self.update_snapshot()
-        summary["snapshot_updated"] = str(snapshot_version)
-        logger.info(f"✓ Updated snapshot: {snapshot_version}")
-
         return summary
 
     def process_latest_release(self) -> Version | None:
         """
-        Process the latest release if not already tracked.
+        Repair missing README indexes for tracked releases, then process the latest release.
 
         Returns:
             Version if newly processed, None if already exists
@@ -95,11 +88,9 @@ class InstrumentationSync:
         logger.info(f"  Latest release tag: {tag_string}")
 
         version = Version(tag_string.lstrip("v"))
+        self.backfill_missing_readmes()
 
         if self.inventory_manager.version_exists(version):
-            if not self.inventory_manager.readme_dir_exists(version):
-                instrumentations = self.inventory_manager.load_versioned_inventory(version)
-                self._sync_library_readmes(version, tag_string, instrumentations)
             if not self.inventory_manager.jmx_models_index_exists(version):
                 self._sync_jmx_models(version, tag_string)
             return None
@@ -117,69 +108,35 @@ class InstrumentationSync:
 
         return version
 
-    def update_snapshot(self) -> Version:
+    def backfill_missing_readmes(self) -> list[Version]:
+        """Complete README discovery for tracked releases lacking a valid index.
+
+        Use each release's tag and existing inventory. Failed fetches remain retryable
+        even after a newer release appears; completed indexes require no network calls.
         """
-        Update snapshot version from main branch.
-
-        This will:
-        1. Determine next snapshot version
-        2. Fetch from main branch
-        3. Clean up old snapshots
-        4. Save new snapshot
-
-        Returns:
-            The snapshot version
-        """
-        latest_release_tag = self.client.get_latest_release_tag()
-        latest_release = Version(latest_release_tag.lstrip("v"))
-
-        # Create snapshot version (increment patch)
-        snapshot_version = Version(
-            major=latest_release.major,
-            minor=latest_release.minor,
-            patch=latest_release.patch + 1,
-            prerelease=("SNAPSHOT",),
-        )
-
-        try:
-            main_ref = self.client.resolve_ref_to_sha("main")
-        except GithubAPIError:
-            logger.warning("  Could not resolve main to SHA; falling back to branch ref")
-            main_ref = "main"
-
-        logger.info("  Fetching instrumentation list from main branch...")
-        yaml_content = self.client.fetch_instrumentation_list(ref=main_ref)
-        instrumentations = parse_instrumentation_yaml(yaml_content)
-
-        removed = self.inventory_manager.cleanup_snapshots()
-        if removed > 0:
-            logger.info(f"  Removed {removed} old snapshot(s)")
-
-        self.inventory_manager.save_versioned_inventory(
-            version=snapshot_version,
-            instrumentations=instrumentations,
-        )
-        self._sync_library_readmes(snapshot_version, main_ref, instrumentations)
-
-        return snapshot_version
+        completed = []
+        for version in self.inventory_manager.list_release_versions():
+            if self.inventory_manager.readme_index_exists(version):
+                continue
+            logger.info("  Backfilling library READMEs for v%s", version)
+            instrumentations = self.inventory_manager.load_versioned_inventory(version)
+            if self._sync_library_readmes(version, f"v{version}", instrumentations):
+                completed.append(version)
+        return completed
 
     def _sync_library_readmes(
         self,
         version: Version,
         ref: str,
         instrumentations: dict,
-    ) -> None:
-        """Best-effort: fetch library READMEs at `ref` and persist content-addressed.
-
-        Per-file failures are logged and skipped; tree-discovery failure aborts
-        only this step, never the sync.
-        """
+    ) -> bool:
+        """Publish a completion index only when discovery and every applicable fetch succeed."""
         try:
             sha = ref if _SHA_RE.match(ref) else self.client.resolve_ref_to_sha(ref)
             discovered = self.readme_extractor.discover_library_readmes(sha)
         except GithubAPIError as e:
             logger.warning(f"  README discovery failed for {ref}: {e}")
-            return
+            return False
 
         libraries_raw = instrumentations.get("libraries", [])
         # Parsed YAML may keep grouped format {tag: [lib, ...]} or flat list
@@ -192,6 +149,7 @@ class InstrumentationSync:
             lib["source_path"]: lib["name"] for lib in libraries if lib.get("source_path") and lib.get("name")
         }
 
+        fetch_failed = False
         fetched: list[tuple[str, str]] = []
         for source_path, blob_path in discovered.items():
             name = name_by_source.get(source_path)
@@ -201,10 +159,15 @@ class InstrumentationSync:
                 content = self.readme_extractor.fetch_readme(blob_path, sha)
                 fetched.append((name, content))
             except GithubAPIError as e:
-                logger.warning(f"  Skipping README for {name}: {e}")
+                logger.warning(f"  README fetch failed for {name}: {e}")
+                fetch_failed = True
+
+        if fetch_failed:
+            return False
 
         written = self.inventory_manager.save_library_readmes(version, fetched)
         logger.info(f"  Stored {written} library README(s) for v{version}")
+        return True
 
     def _sync_jmx_models(self, version: Version, ref: str) -> None:
         """Best-effort: fetch JMX weaver model files and write version index."""

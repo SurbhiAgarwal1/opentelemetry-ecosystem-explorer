@@ -46,7 +46,12 @@ import { SIGNAL_STYLES, getSignalFilterClasses } from "./styles/signal-styles";
 import type { DeprecatedIndexComponent, IndexComponent, Stability } from "@/types/collector";
 
 type ComponentTypeFilter =
-  "all" | "receiver" | "processor" | "exporter" | "extension" | "connector";
+  | "all"
+  | "receiver"
+  | "processor"
+  | "exporter"
+  | "extension"
+  | "connector";
 type DistributionFilter = string;
 type StabilityFilter = Stability | "all";
 
@@ -246,7 +251,7 @@ function CollectorComponentsContent({ urlVersion }: { urlVersion?: string }) {
     } else {
       params.delete("version");
     }
-    navigate({
+    void navigate({
       pathname:
         val === "deprecated" || !val ? "/collector/components" : `/collector/components/${val}`,
       search: params.size > 0 ? `?${params.toString()}` : "",
@@ -287,7 +292,7 @@ function CollectorComponentsContent({ urlVersion }: { urlVersion?: string }) {
         params.delete("version");
       }
       if (urlVersion) {
-        navigate({
+    void navigate({
           pathname: "/collector/components",
           search: params.size > 0 ? `?${params.toString()}` : "",
         });
@@ -304,7 +309,7 @@ function CollectorComponentsContent({ urlVersion }: { urlVersion?: string }) {
         if (!hasVersion) {
           params.delete("version");
           if (urlVersion) {
-            navigate({
+    void navigate({
               pathname: "/collector/components",
               search: params.size > 0 ? `?${params.toString()}` : "",
             });

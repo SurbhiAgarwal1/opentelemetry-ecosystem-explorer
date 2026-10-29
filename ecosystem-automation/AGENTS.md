@@ -10,6 +10,8 @@ Python pipelines that watch upstream OpenTelemetry projects and write versioned 
 - `python-instrumentation-watcher/` — Python (python-contrib) instrumentations
 - `configuration-watcher/` — Declarative configuration schema
 - `explorer-db-builder/` — Builds the content-addressed database the frontend reads
+- `semconv-timeline-watcher/` — Proposes semantic-convention timeline candidates for review (see its
+  README; it never writes `timeline.json`)
 - `v1-registry-sync/` — Compares the collector registry against the upstream v1 registry
 - `watcher-common/` — Shared base classes for inventory and version detection
   (`watcher-common/src/watcher_common/`)
@@ -84,16 +86,22 @@ were editing.
 
 ## Footguns
 
+- `semconv-timeline-watcher` keeps two different marks apart: `reviewedThrough` in `timeline.json`
+  (accepted coverage, moved only by a maintainer's merged change) and the processing `cursor` in its
+  state (never past a pending revision). Do not derive one from the other, and never let the watcher
+  write the accepted file.
+
 - Skipping the version-existence check causes nightly re-processing and large noisy PRs.
 - Manually deleting a version directory shifts the deprecation baseline for the collector watcher
   and produces false-positive deprecations on the next sync. Use the watcher's helpers instead.
 - Snapshot cleanup must be paired with writing a replacement, otherwise the snapshot is missing on
   the frontend until the next sync.
-- The `explorer-db-builder` output directories (`public/data/{javaagent,configuration,collector}/`)
-  are builder-owned: `--clean` `rmtree`s them, so a curated file committed inside one disappears on
-  the next clean run (#882). Put hand-maintained frontend data in a sibling directory instead; the
-  builder README's Methodology section lists them. A new pipeline's output directory is
-  builder-owned and belongs in the list above.
+- The `explorer-db-builder` output directories
+  (`public/data/{javaagent,configuration,collector,javascript}/`) are builder-owned: `--clean`
+  `rmtree`s them, so a curated file committed inside one disappears on the next clean run (#882).
+  Put hand-maintained frontend data in a sibling directory instead; the builder README's Methodology
+  section lists them. A new pipeline's output directory is builder-owned and belongs in the list
+  above.
 
 ## Before finishing
 

@@ -173,8 +173,8 @@ export interface Configuration {
   description: string;
   /** The expected data type of the configuration value. */
   type: "boolean" | "string" | "list" | "map" | "int" | "double";
-  /** The default value if not specified. */
-  default: string | boolean | number;
+  /** The default value if not specified. Absent when an unset value falls back to another setting. */
+  default?: string | boolean | number;
   /** Example values for this configuration option. */
   examples?: string[];
   /** When set to "structured_list", each entry is an object described by declarative_schema. */
@@ -214,7 +214,13 @@ export interface Metric {
   instrument: "updowncounter" | "counter" | "gauge" | "histogram";
   /** The OpenTelemetry data type for the metric. */
   data_type:
-    "LONG_SUM" | "DOUBLE_SUM" | "LONG_GAUGE" | "DOUBLE_GAUGE" | "COUNTER" | "HISTOGRAM" | "SUMMARY";
+    | "LONG_SUM"
+    | "DOUBLE_SUM"
+    | "LONG_GAUGE"
+    | "DOUBLE_GAUGE"
+    | "COUNTER"
+    | "HISTOGRAM"
+    | "SUMMARY";
   /** The unit of measurement (e.g., ms, bytes). */
   unit: string;
   /** Attributes associated with the metric. */

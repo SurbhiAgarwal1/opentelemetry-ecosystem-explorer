@@ -20,9 +20,11 @@ reviewing.
 - **inventory** — directory layout under
   `ecosystem-registry/{ecosystem}/{distribution}/v{version}/`.
 - **explorer-db-builder** — converts the registry into JSON under `ecosystem-explorer/public/data/`.
-- **DB_VERSION** — IndexedDB schema version constant in
-  `ecosystem-explorer/src/lib/api/idb-cache.ts`. Auto-bumped by
-  `.github/workflows/build-explorer-database.yml`.
+- **DB_VERSION** — `DB_VERSION` in `ecosystem-explorer/src/lib/api/idb-cache.ts` is a schema
+  version, not a data version. No workflow bumps it. Bump it by hand only when `STORES`, a store's
+  `keyPath` or the `upgrade` handler change, or when the value cached under an existing immutable
+  key changes shape; in that last case prefer renaming the key prefix, which invalidates only those
+  entries. `CACHE_EXPIRATION_MS` is not a reason, because expiry is evaluated at read time.
 - **`[automated]` PR** — bot-authored PR by `app/otelbot` (or `app/renovate`). The diff is
   regenerated output, not human-written code.
 - **`DataState<T>`** — canonical async hook return shape (`{ data, loading, error }`) in
@@ -46,7 +48,7 @@ reviewing.
 
 ## Things you should NOT flag
 
-- Style enforced by Ruff, ESLint, Prettier, or markdownlint — all four run in CI.
+- Style enforced by Ruff, Oxlint, Oxfmt, or markdownlint — all four run in CI.
 - Existing patterns adjacent to the change. Stay focused on the diff.
 - Missing PR template fields, screenshots, or changelog entries.
 - Lockfile churn (`bun.lock`, `package-lock.json`, `uv.lock`) when the `package.json` or

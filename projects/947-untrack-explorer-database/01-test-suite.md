@@ -3,8 +3,8 @@ title: "Phase 1 — Data-independent test suite"
 issue: 947
 type: plan
 phase: 1
-status: in-progress
-last_updated: "2026-09-23"
+status: complete
+last_updated: "2026-09-24"
 ---
 
 > [!NOTE]
@@ -34,8 +34,8 @@ for every later phase, and it ships value on its own even if #947 is abandoned.
 - Move three corpus-reading test groups into the integration suite: the registry snapshot in
   `normalize-instrumentation.test.ts`, `starter-template.test.ts`, and the corpus half of
   `scripts/generate-agent-docs.test.ts`.
-- Renaming is sufficient for the two under `src/`: `vitest.config.ts:31` excludes
-  `**/*.integration.test.{ts,tsx}` and `vitest.integration.config.ts:32` includes
+- Renaming is sufficient for the two under `src/`: `vitest.config.ts` excludes
+  `**/*.integration.test.{ts,tsx}` and `vitest.integration.config.ts` includes
   `src/**/*.integration.test.{ts,tsx}`. `scripts/generate-agent-docs.test.ts` sits outside `src/`,
   so the integration config's `include` must also gain `scripts/**/*.integration.test.{ts,tsx}`, or
   that file would leave the unit suite without joining the integration suite and stop running
@@ -106,5 +106,3 @@ None blocking.
   `normalize-instrumentation.integration.test.ts` is inherited from the test it replaces. It asserts
   that at least one module groups two or more entries, so a legitimate upstream change could fail it
   for a pure data reason — the same objection that justified removing the count floors.
-- The `statSync` catch-all in `src/test/integration/global-setup.ts` reports a permissions error as
-  a missing database, so the remedy it prints would not help in that case.

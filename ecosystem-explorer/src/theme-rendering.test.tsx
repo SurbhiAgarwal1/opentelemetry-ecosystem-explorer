@@ -18,7 +18,7 @@ import { resolve } from "node:path";
 import tailwind from "@tailwindcss/postcss";
 import postcss, { type AcceptedPlugin, type Root, type Rule } from "postcss";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 import { GlowBadge } from "@/components/ui/glow-badge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { ThemeProvider } from "@/theme-context";
@@ -41,6 +41,8 @@ beforeAll(async () => {
   const script = html.querySelector("head script:not([src])")?.textContent;
   expect(script, "pre-paint theme initialization").toBeTruthy();
   initializeTheme = () => {
+    // Running index.html's inline pre-paint script is the point of this test.
+    // oxlint-disable-next-line typescript/no-implied-eval
     new Function(script!)();
   };
 });

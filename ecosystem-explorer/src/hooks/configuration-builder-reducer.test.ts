@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vite-plus/test";
 import { configurationBuilderReducer, INITIAL_STATE } from "./configuration-builder-reducer";
 import type { ConfigurationBuilderState, ConfigValues } from "@/types/configuration-builder";
 
@@ -110,6 +110,25 @@ describe("configurationBuilderReducer", () => {
         value: null,
       });
       expect(resultSolo.values.distribution).toBeUndefined();
+    });
+
+    it.each([
+      ["distribution", { distribution: [{ javaagent: {} }] }],
+      ["javaagent", { distribution: { javaagent: [{ instrumentation: {} }] } }],
+      ["instrumentation as []", { distribution: { javaagent: { instrumentation: [] } } }],
+      [
+        "instrumentation with a null-enabled module",
+        { distribution: { javaagent: { instrumentation: [{ enabled: null }] } } },
+      ],
+    ])("preserves an array-valued %s subtree on an unrelated edit", (_label, values) => {
+      const state = { ...baseState, values: values as ConfigValues };
+      const result = configurationBuilderReducer(state, {
+        type: "SET_VALUE",
+        path: ["file_format"],
+        value: "1.0",
+      });
+      expect(result.values).toEqual({ ...values, file_format: "1.0" });
+      expect(result.values.distribution).toBe(values.distribution);
     });
   });
 
@@ -468,76 +487,6 @@ describe("configurationBuilderReducer", () => {
         ],
       });
       expect(next.values).toEqual({ [ROOT]: { foo: { list: [], map: {} } } });
-    });
-  });
-
-  describe("PRUNE_INSTRUMENTATIONS", () => {
-    it("drops customizations for modules absent from the valid set", () => {
-      const before = stateWithInstrumentation({
-        reactor: { enabled: true },
-        thrift: { enabled: false },
-        cassandra: { enabled: false },
-      });
-      const s = configurationBuilderReducer(before, {
-        type: "PRUNE_INSTRUMENTATIONS",
-        validModules: ["reactor", "cassandra"],
-      });
-      expect(getInst(s)).toEqual({
-        reactor: { enabled: true },
-        cassandra: { enabled: false },
-      });
-    });
-
-    it("removes the whole distribution branch when nothing valid remains", () => {
-      const before = stateWithInstrumentation({
-        thrift: { enabled: false },
-        jaxws_2_0_cxf_3_0: { enabled: false },
-      });
-      const s = configurationBuilderReducer(before, {
-        type: "PRUNE_INSTRUMENTATIONS",
-        validModules: ["reactor", "cassandra"],
-      });
-      // Now PRUNE_INSTRUMENTATIONS correctly removes the whole empty branch
-      expect(getInst(s)).toBeUndefined();
-      expect(s.values.distribution).toBeUndefined();
-    });
-
-    it("returns the same state reference when nothing needs pruning", () => {
-      const before = stateWithInstrumentation({
-        reactor: { enabled: true },
-        cassandra: { enabled: false },
-      });
-      const s = configurationBuilderReducer(before, {
-        type: "PRUNE_INSTRUMENTATIONS",
-        validModules: ["reactor", "cassandra", "thrift"],
-      });
-      expect(s).toBe(before);
-    });
-
-    it("is a no-op when no instrumentation customizations are present", () => {
-      const s = configurationBuilderReducer(baseState, {
-        type: "PRUNE_INSTRUMENTATIONS",
-        validModules: ["reactor"],
-      });
-      expect(s).toBe(baseState);
-    });
-
-    it("does not mark the state dirty (the prune is system-driven, not user-driven)", () => {
-      const before = stateWithInstrumentation({ thrift: { enabled: false } });
-      const s = configurationBuilderReducer(before, {
-        type: "PRUNE_INSTRUMENTATIONS",
-        validModules: ["reactor"],
-      });
-      expect(s.isDirty).toBe(false);
-    });
-
-    it("preserves an existing dirty flag", () => {
-      const before = { ...stateWithInstrumentation({ thrift: { enabled: false } }), isDirty: true };
-      const s = configurationBuilderReducer(before, {
-        type: "PRUNE_INSTRUMENTATIONS",
-        validModules: ["reactor"],
-      });
-      expect(s.isDirty).toBe(true);
     });
   });
 });

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import "@/test/dom-matchers";
-import { beforeAll, vi } from "vitest";
+import { beforeAll, vi } from "vite-plus/test";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
@@ -29,7 +29,7 @@ import listEn from "../../public/locales/en/list.json";
 import detailEn from "../../public/locales/en/detail.json";
 import semanticConventionsEn from "../../public/locales/en/semantic-conventions.json";
 
-i18n.use(initReactI18next).init({
+void i18n.use(initReactI18next).init({
   lng: "en",
   fallbackLng: "en",
   ns: [
