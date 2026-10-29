@@ -292,7 +292,7 @@ function CollectorComponentsContent({ urlVersion }: { urlVersion?: string }) {
         params.delete("version");
       }
       if (urlVersion) {
-    void navigate({
+        void navigate({
           pathname: "/collector/components",
           search: params.size > 0 ? `?${params.toString()}` : "",
         });
@@ -309,7 +309,7 @@ function CollectorComponentsContent({ urlVersion }: { urlVersion?: string }) {
         if (!hasVersion) {
           params.delete("version");
           if (urlVersion) {
-    void navigate({
+            void navigate({
               pathname: "/collector/components",
               search: params.size > 0 ? `?${params.toString()}` : "",
             });
