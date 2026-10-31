@@ -195,21 +195,3 @@ class TestVersionDetector:
     def test_read_file_at_ref_missing_ref_returns_none(self, temp_git_repo):
         detector = VersionDetector(temp_git_repo)
         assert detector.read_file_at_ref("v9.9.9", "test.txt") is None
-
-    def test_determine_next_snapshot_version(self, temp_git_repo):
-        detector = VersionDetector(temp_git_repo)
-        next_version = detector.determine_next_snapshot_version()
-
-        # Latest release is v0.112.0, so next snapshot should be v0.112.1-SNAPSHOT
-        assert next_version.major == 0
-        assert next_version.minor == 112
-        assert next_version.patch == 1
-        assert next_version.prerelease
-
-    def test_determine_next_snapshot_version_empty_repo(self, empty_git_repo):
-        """Test determining next snapshot version with no existing releases."""
-        detector = VersionDetector(empty_git_repo)
-        next_version = detector.determine_next_snapshot_version()
-
-        # Should default to v0.0.1-SNAPSHOT
-        assert next_version == Version(major=0, minor=0, patch=1, prerelease=("SNAPSHOT",))

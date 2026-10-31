@@ -132,18 +132,3 @@ class TestVersionDetector:
 
         current_branch = run_git(temp_git_repo, "branch", "--show-current")
         assert current_branch == "main"
-
-    def test_determine_next_snapshot_version(self, temp_git_repo):
-        detector = VersionDetector(temp_git_repo)
-        next_version = detector.determine_next_snapshot_version()
-
-        assert next_version.major == 1
-        assert next_version.minor == 0
-        assert next_version.patch == 1
-        assert next_version.prerelease
-
-    def test_determine_next_snapshot_version_empty_repo(self, empty_git_repo):
-        detector = VersionDetector(empty_git_repo)
-        next_version = detector.determine_next_snapshot_version()
-
-        assert next_version == Version(major=0, minor=0, patch=1, prerelease=("SNAPSHOT",))

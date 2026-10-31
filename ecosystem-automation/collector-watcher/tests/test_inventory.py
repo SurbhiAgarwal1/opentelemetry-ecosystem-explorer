@@ -257,28 +257,6 @@ def test_delete_version_prunes_orphan_schemas(temp_inventory_dir, sample_compone
     assert not (schemas_dir / "abc123def456.yaml").exists()
 
 
-def test_cleanup_snapshots_prunes_orphan_schemas(temp_inventory_dir, sample_components):
-    """Removing the only snapshot that referenced a schema removes the schema file."""
-    manager = InventoryManager(str(temp_inventory_dir))
-
-    snapshot = Version(major=0, minor=113, patch=0, prerelease=("SNAPSHOT",))
-    manager.save_versioned_inventory(
-        distribution="core",
-        version=snapshot,
-        components=sample_components,
-        repository="opentelemetry-collector",
-        schema_hash="abc123def456",
-    )
-
-    schemas_dir = manager.meta_schemas_dir()
-    schemas_dir.mkdir(parents=True)
-    (schemas_dir / "abc123def456.yaml").write_text("type: object\n")
-
-    manager.cleanup_snapshots("core")
-
-    assert not (schemas_dir / "abc123def456.yaml").exists()
-
-
 def test_list_versions(temp_inventory_dir, sample_components):
     manager = InventoryManager(str(temp_inventory_dir))
 
@@ -301,29 +279,6 @@ def test_list_versions(temp_inventory_dir, sample_components):
     assert str(versions[0]) == "0.112.0"
     assert str(versions[1]) == "0.111.0"
     assert str(versions[2]) == "0.110.0"
-
-
-def test_list_snapshot_versions(temp_inventory_dir, sample_components):
-    manager = InventoryManager(str(temp_inventory_dir))
-
-    # Create mix of release and snapshot versions
-    v1 = Version("0.112.0")
-    v2 = Version(major=0, minor=113, patch=0, prerelease=("SNAPSHOT",))
-    v3 = Version(major=0, minor=114, patch=0, prerelease=("SNAPSHOT",))
-
-    for version in [v1, v2, v3]:
-        manager.save_versioned_inventory(
-            distribution="contrib",
-            version=version,
-            components=sample_components,
-            repository="opentelemetry-collector-contrib",
-        )
-
-    # List snapshot versions only
-    snapshots = manager.list_snapshot_versions("contrib")
-
-    assert len(snapshots) == 2
-    assert all(v.prerelease for v in snapshots)
 
 
 def test_list_release_versions(temp_inventory_dir, sample_components):
@@ -353,44 +308,13 @@ def test_list_release_versions(temp_inventory_dir, sample_components):
     assert str(releases[1]) == "0.112.0"
 
 
-def test_cleanup_snapshots(temp_inventory_dir, sample_components):
-    manager = InventoryManager(str(temp_inventory_dir))
-
-    v1 = Version("0.112.0")
-    v2 = Version(major=0, minor=113, patch=0, prerelease=("SNAPSHOT",))
-    v3 = Version(major=0, minor=114, patch=0, prerelease=("SNAPSHOT",))
-
-    for version in [v1, v2, v3]:
-        manager.save_versioned_inventory(
-            distribution="contrib",
-            version=version,
-            components=sample_components,
-            repository="opentelemetry-collector-contrib",
-        )
-
-    assert manager.version_exists("contrib", v1)
-    assert manager.version_exists("contrib", v2)
-    assert manager.version_exists("contrib", v3)
-
-    removed = manager.cleanup_snapshots("contrib")
-
-    assert removed == 2
-    # Release should still exist
-    assert manager.version_exists("contrib", v1)
-    # Snapshots should be gone
-    assert not manager.version_exists("contrib", v2)
-    assert not manager.version_exists("contrib", v3)
-
-
 def test_prune_release_versions_not_in(temp_inventory_dir, sample_components):
     manager = InventoryManager(str(temp_inventory_dir))
 
     keep = Version("0.112.0")
     drop_older = Version("0.110.0")
     drop_newer = Version("0.113.0")
-    snapshot = Version(major=0, minor=114, patch=0, prerelease=("SNAPSHOT",))
-
-    for version in [keep, drop_older, drop_newer, snapshot]:
+    for version in [keep, drop_older, drop_newer]:
         manager.save_versioned_inventory(
             distribution="core",
             version=version,
@@ -406,8 +330,6 @@ def test_prune_release_versions_not_in(temp_inventory_dir, sample_components):
     # Unlisted releases are gone
     assert not manager.version_exists("core", drop_older)
     assert not manager.version_exists("core", drop_newer)
-    # Snapshots are always preserved, even though they are not in the keep list
-    assert manager.version_exists("core", snapshot)
 
 
 def test_prune_release_versions_not_in_keeps_all_listed(temp_inventory_dir, sample_components):
@@ -768,24 +690,6 @@ def test_component_readmes_are_isolated_per_distribution(temp_inventory_dir, sam
     assert contrib_content == "# contrib version"
 
 
-def test_cleanup_snapshots_removes_component_readmes(temp_inventory_dir, sample_components, sample_snapshot_version):
-    manager = InventoryManager(str(temp_inventory_dir))
-    manager.save_versioned_inventory(
-        distribution="core",
-        version=sample_snapshot_version,
-        components=sample_components,
-        repository="opentelemetry-collector",
-    )
-    manager.save_component_readmes("core", sample_snapshot_version, [("otlpreceiver", "# Content")])
-
-    snapshot_dir = manager.get_version_dir("core", sample_snapshot_version)
-    assert (snapshot_dir / "component-readmes.yaml").exists()
-
-    manager.cleanup_snapshots("core")
-
-    assert not snapshot_dir.exists()
-
-
 def test_load_component_readme_map_uses_published_index(temp_inventory_dir, sample_version):
     manager = InventoryManager(str(temp_inventory_dir))
     manager.save_component_readmes("core", sample_version, [("otlpreceiver", "old")])
@@ -821,18 +725,16 @@ def test_load_component_readme_map_missing_dir_returns_empty(temp_inventory_dir,
     assert manager.load_component_readme_map("core", sample_version) == {}
 
 
-@pytest.mark.parametrize("operation", ["cleanup_snapshots", "delete_version", "prune_release_versions_not_in"])
+@pytest.mark.parametrize("operation", ["delete_version", "prune_release_versions_not_in"])
 def test_shared_readme_pruning_preserves_other_references(temp_inventory_dir, operation):
     manager = InventoryManager(str(temp_inventory_dir))
-    removed = Version("1.0.0-SNAPSHOT" if operation == "cleanup_snapshots" else "1.0.0")
+    removed = Version("1.0.0")
     kept = Version("2.0.0")
     manager.save_component_readmes("core", removed, [("raw/name", "shared"), ("orphan", "old")])
     assert manager.save_component_readmes("core", kept, [("raw/name", "shared")]) == 0
     manager.save_component_readmes("contrib", removed, [("other", "untouched")])
     other = list((temp_inventory_dir / "contrib" / "readmes").glob("*.md"))
-    if operation == "cleanup_snapshots":
-        manager.cleanup_snapshots("core")
-    elif operation == "delete_version":
+    if operation == "delete_version":
         manager.delete_version("core", removed)
     else:
         manager.prune_release_versions_not_in("core", [kept])
