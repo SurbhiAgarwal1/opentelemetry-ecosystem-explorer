@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
@@ -472,5 +472,49 @@ describe("JavaReleaseComparisonPage telemetry filter", () => {
     await user.click(screen.getByRole("button", { name: "Metrics" }));
     await user.click(screen.getByRole("button", { name: "Spans" }));
     expect(screen.getByText("JDBC-like Display")).toBeInTheDocument();
+  });
+});
+
+describe("JavaReleaseComparisonPage tab URL state", () => {
+  beforeEach(() => {
+    vi.mocked(useVersions).mockReturnValue(mockVersions);
+    vi.mocked(useReleaseComparison).mockReturnValue({
+      diff: makeDiff(),
+      loading: false,
+      error: null,
+    });
+  });
+
+  it("restores the All Metrics tab from the URL", () => {
+    renderPage("/java-agent/releases?from=1.0.0&to=2.0.0&tab=metrics");
+
+    expect(screen.getByRole("tab", { name: /All Metrics/ })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
+
+  it("falls back to Changes Summary when the tab param is invalid", () => {
+    renderPage("/java-agent/releases?from=1.0.0&to=2.0.0&tab=bogus");
+
+    expect(screen.getByRole("tab", { name: /Changes Summary/ })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
+
+  it("writes tab=metrics, keeps other params, and omits the default tab", async () => {
+    const user = userEvent.setup();
+    renderPage("/java-agent/releases?from=1.0.0&to=2.0.0&status=added");
+
+    await user.click(screen.getByRole("tab", { name: /All Metrics/ }));
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/java-agent/releases?from=1.0.0&to=2.0.0&status=added&tab=metrics"
+    );
+
+    await user.click(screen.getByRole("tab", { name: /Changes Summary/ }));
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/java-agent/releases?from=1.0.0&to=2.0.0&status=added"
+    );
   });
 });

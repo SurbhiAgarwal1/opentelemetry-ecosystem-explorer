@@ -51,7 +51,7 @@ export function useCollectorVersions(): DataState<VersionsIndex> {
       }
     }
 
-    loadData();
+    void loadData();
 
     return () => {
       cancelled = true;
@@ -88,7 +88,7 @@ export function useCollectorIndex(): DataState<CollectorIndex> {
       }
     }
 
-    loadData();
+    void loadData();
 
     return () => {
       cancelled = true;
@@ -129,7 +129,7 @@ export function useCollectorDeprecations(enabled = true): DataState<CollectorDep
       }
     }
 
-    loadData();
+    void loadData();
     return () => {
       cancelled = true;
     };
@@ -138,7 +138,7 @@ export function useCollectorDeprecations(enabled = true): DataState<CollectorDep
   return state;
 }
 
-export function useCollectorComponents(version: string): DataState<IndexComponent[]> {
+export function useCollectorComponents(version?: string | null): DataState<IndexComponent[]> {
   const [state, setState] = useState<DataState<IndexComponent[]>>({
     data: null,
     loading: true,
@@ -149,7 +149,7 @@ export function useCollectorComponents(version: string): DataState<IndexComponen
     let cancelled = false;
 
     async function loadData() {
-      if (!version) {
+      if (version === null) {
         setState({ data: null, loading: false, error: null });
         return;
       }
@@ -157,7 +157,9 @@ export function useCollectorComponents(version: string): DataState<IndexComponen
       setState({ data: null, loading: true, error: null });
 
       try {
-        const data = await collectorData.loadAllComponents(version);
+        const data = version
+          ? await collectorData.loadAllComponents(version)
+          : await collectorData.loadAllComponents();
         if (!cancelled) {
           setState({ data, loading: false, error: null });
         }
@@ -172,7 +174,7 @@ export function useCollectorComponents(version: string): DataState<IndexComponen
       }
     }
 
-    loadData();
+    void loadData();
 
     return () => {
       cancelled = true;
@@ -224,7 +226,7 @@ export function useComponentVersions(distribution: string, name: string): DataSt
       }
     }
 
-    loadData();
+    void loadData();
 
     return () => {
       cancelled = true;
@@ -272,7 +274,7 @@ export function useCollectorComponent(
       }
     }
 
-    loadData();
+    void loadData();
 
     return () => {
       cancelled = true;
@@ -322,7 +324,7 @@ export function useComponentReadme(
       }
     }
 
-    loadData();
+    void loadData();
 
     return () => {
       cancelled = true;

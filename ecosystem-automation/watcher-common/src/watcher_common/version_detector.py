@@ -25,16 +25,37 @@ from watcher_common.repository_manager import _GIT
 class VersionDetector:
     """Detects versions in OpenTelemetry git repositories."""
 
-    def __init__(self, repo_path: str | Path):
+    def __init__(self, repo_path: str | Path, tag_prefix: str = "v"):
         """Args:
             repo_path: Path to the git repository
+            tag_prefix: Exact release tag prefix, e.g. v or browser-instrumentation-v
 
         Raises:
             ValueError: If repository path does not exist
         """
+        self.tag_prefix = tag_prefix
         self.repo_path = Path(repo_path)
         if not self.repo_path.exists():
             raise ValueError(f"Repository path does not exist: {repo_path}")
+
+    def fetch_tags(self) -> None:
+        """Fetch release tags, including tags added since the last watcher run.
+
+        Raises:
+            ValueError: If git fetch fails. The message includes git's stderr,
+                matching checkout_version, because capture_output otherwise hides
+                the cause from the nightly log.
+        """
+        try:
+            subprocess.run(
+                [_GIT, "fetch", "origin", "--tags"],
+                cwd=self.repo_path,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise ValueError(f"Failed to fetch tags: {e.stderr}") from e
 
     def _list_tags(self) -> list[str]:
         """Return all tag names in the repository."""
@@ -52,8 +73,12 @@ class VersionDetector:
         versions = []
         for tag_name in self._list_tags():
             try:
-                # Strip 'v' prefix from tag name (e.g., "v0.112.0" -> "0.112.0")
-                version = Version(tag_name.lstrip("v"))
+                if tag_name.startswith(self.tag_prefix):
+                    version = Version(tag_name.removeprefix(self.tag_prefix))
+                elif self.tag_prefix == "v":
+                    version = Version(tag_name)
+                else:
+                    continue
                 if not version.prerelease:
                     versions.append(version)
             except ValueError:
@@ -86,8 +111,8 @@ class VersionDetector:
         Raises:
             ValueError: If version tag doesn't exist
         """
-        # Git tags have 'v' prefix (e.g., "v0.112.0")
-        tag_name = f"v{version}"
+        # Match the configured component prefix when checking out a release.
+        tag_name = f"{self.tag_prefix}{version}"
         try:
             subprocess.run(
                 [_GIT, "checkout", tag_name],
@@ -146,24 +171,3 @@ class VersionDetector:
         if result.returncode != 0:
             return None
         return result.stdout
-
-    def determine_next_snapshot_version(self) -> Version:
-        """Determine the next snapshot version based on latest release.
-
-        Returns the next patch version after the latest release.
-        For example, if the latest release is v0.112.0, this returns v0.112.1-SNAPSHOT.
-
-        Returns:
-            Next snapshot version
-        """
-        latest = self.get_latest_release_tag()
-        if latest is None:
-            return Version(major=0, minor=0, patch=1, prerelease=("SNAPSHOT",))
-
-        # Create snapshot version (increment patch)
-        return Version(
-            major=latest.major,
-            minor=latest.minor,
-            patch=latest.patch + 1,
-            prerelease=("SNAPSHOT",),
-        )

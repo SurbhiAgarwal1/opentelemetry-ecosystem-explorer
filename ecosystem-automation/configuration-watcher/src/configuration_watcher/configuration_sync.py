@@ -35,7 +35,6 @@ class ConfigurationSync:
     Handles:
     - Detecting latest release versions
     - Copying schema files from repository checkouts
-    - Creating SNAPSHOT versions from main branch
     - Managing inventory storage
     """
 
@@ -101,40 +100,6 @@ class ConfigurationSync:
 
         return latest
 
-    def update_snapshot(self) -> Version:
-        """
-        Update or create the SNAPSHOT version.
-
-        This:
-        1. Determines next snapshot version
-        2. Checks out main branch
-        3. Copies schema files (writing the replacement snapshot)
-        4. Cleans up old snapshots
-
-        The replacement is written before old snapshots are removed: copy_schemas_to_inventory
-        raises on an empty copy, so a failed sync leaves the existing snapshot intact instead of
-        deleting it with nothing to replace it.
-
-        Returns:
-            Snapshot version that was created
-        """
-        snapshot_version = self.version_detector.determine_next_snapshot_version()
-        logger.info("")
-        logger.info("Updating %s...", snapshot_version)
-
-        self.version_detector.checkout_main()
-
-        copied = self.copy_schemas_to_inventory(snapshot_version)
-        logger.info("  Copied %d schema files", len(copied))
-
-        logger.info("")
-        logger.info("Cleaning up old snapshots...")
-        removed = self.inventory_manager.cleanup_snapshots_except(snapshot_version)
-        if removed > 0:
-            logger.info("  Removed %d old snapshot(s)", removed)
-
-        return snapshot_version
-
     def sync(self) -> dict[str, Any]:
         """
         Synchronize configuration schema to the registry.
@@ -142,14 +107,12 @@ class ConfigurationSync:
         This performs the complete sync workflow:
         1. Check for new releases
         2. Process any new release
-        3. Update snapshot
 
         Returns:
             Summary of what was processed
         """
         summary: dict[str, Any] = {
             "new_release": None,
-            "snapshot_updated": None,
         }
 
         logger.info("=" * 60)
@@ -160,9 +123,6 @@ class ConfigurationSync:
         if latest:
             summary["new_release"] = str(latest)
 
-        snapshot = self.update_snapshot()
-        summary["snapshot_updated"] = str(snapshot)
-
         logger.info("")
         logger.info("=" * 60)
         logger.info("SYNC COMPLETE")
@@ -171,7 +131,6 @@ class ConfigurationSync:
             logger.info("New release processed: %s", summary["new_release"])
         else:
             logger.info("No new releases")
-        logger.info("Snapshot updated: %s", summary["snapshot_updated"])
 
         return summary
 

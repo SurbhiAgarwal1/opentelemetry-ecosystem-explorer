@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { CollectorComponent } from "@/types/collector";
 import { collectorReleaseContext } from "@/v1/lib/collector-release";
 
@@ -141,5 +141,31 @@ describe("Collector release context", () => {
       searchParams: new URLSearchParams("version=0.149.0"),
     });
     expect(release.sourceHref({ ...component, repository: undefined })).toBeNull();
+  });
+
+  it("resolves unpinned version to distribution-specific latest when out of sync", () => {
+    const outOfSyncVersions = {
+      versions: [
+        { version: "0.151.0", is_latest: true, distributions: ["core"] },
+        { version: "0.150.0", is_latest: false, distributions: ["core", "contrib"] },
+      ],
+      distributions: {
+        core: { latest: "0.151.0" },
+        contrib: { latest: "0.150.0" },
+      },
+    };
+    const releaseCore = collectorReleaseContext({
+      searchParams: new URLSearchParams(),
+      versions: outOfSyncVersions,
+      distribution: "core",
+    });
+    expect(releaseCore.dataVersion()).toBe("0.151.0");
+
+    const releaseContrib = collectorReleaseContext({
+      searchParams: new URLSearchParams(),
+      versions: outOfSyncVersions,
+      distribution: "contrib",
+    });
+    expect(releaseContrib.dataVersion()).toBe("0.150.0");
   });
 });

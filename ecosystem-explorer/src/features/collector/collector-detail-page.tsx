@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import { useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Info,
@@ -30,6 +30,7 @@ import {
 import { Loader } from "@/components/ui/loader";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { BackButton } from "@/components/ui/back-button";
+import { useBackNavigation } from "@/hooks/use-back-navigation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { SegmentedTabList } from "@/components/ui/segmented-tabs";
 import { GlowBadge } from "@/components/ui/glow-badge";
@@ -48,6 +49,10 @@ import { CollectorTelemetryTab } from "./components/collector-telemetry-tab";
 import { CollectorFeatureGatesTab } from "./components/collector-feature-gates-tab";
 import { CollectorReadmeTab } from "./components/collector-readme-tab";
 import { TelemetryComparisonSection } from "./components/telemetry-comparison/telemetry-comparison-section";
+
+// The parent path (/collector/components/:distribution) would match the /:version route, so the
+// back fallback points at the list page directly.
+const COLLECTOR_LIST_PATH = "/collector/components";
 
 const getBadgeVariant = (level: string): "success" | "info" | "warning" | "muted" => {
   const lower = level.toLowerCase();
@@ -69,7 +74,7 @@ export function CollectorDetailPage() {
   const { distribution, name } = useParams<{ distribution: string; name: string }>();
 
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const goBack = useBackNavigation(COLLECTOR_LIST_PATH);
   const { data: versionData, error: versionsError } = useCollectorVersions();
 
   const rawVersion = searchParams.get("version");
@@ -80,7 +85,10 @@ export function CollectorDetailPage() {
   );
   const version = deprecatedView
     ? (deprecatedEntry?.last_version ?? "")
-    : rawVersion || versionData?.versions.find((v) => v.is_latest)?.version || "";
+    : rawVersion ||
+      (distribution && versionData?.distributions?.[distribution]?.latest) ||
+      versionData?.versions.find((v) => v.is_latest)?.version ||
+      "";
 
   // Once the versions fetch has settled with an error, stop waiting for a
   // version to resolve — `version` will never become non-empty otherwise,
@@ -147,7 +155,7 @@ export function CollectorDetailPage() {
   if (error || (!version && versionsError) || !component) {
     return (
       <PageContainer>
-        <BackButton />
+        <BackButton fallbackTo={COLLECTOR_LIST_PATH} />
         <div className="mt-3">
           <DetailCard className="border-red-500/50 bg-red-500/5">
             <div className="flex gap-4">
@@ -163,7 +171,7 @@ export function CollectorDetailPage() {
                   {(error ?? versionsError)?.message || t("detail.error.fallback")}
                 </p>
                 <button
-                  onClick={() => navigate(-1)}
+                  onClick={goBack}
                   className="text-sm font-medium text-red-600 hover:underline dark:text-red-400"
                 >
                   {t("detail.error.goBack")}
@@ -206,7 +214,7 @@ export function CollectorDetailPage() {
   return (
     <PageContainer>
       <Seo title={seo.title} description={seo.description} />
-      <BackButton />
+      <BackButton fallbackTo={COLLECTOR_LIST_PATH} />
 
       <div className="mt-3 space-y-6">
         {deprecatedEntry && (

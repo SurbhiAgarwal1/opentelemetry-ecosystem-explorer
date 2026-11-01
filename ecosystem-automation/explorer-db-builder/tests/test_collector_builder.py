@@ -608,8 +608,34 @@ class TestRunCollectorBuilderAuditReport:
             report = json.load(f)
 
         assert report["ecosystem"] == "collector"
-        assert report["version"] == "0.156.0"
+        assert report["version"] == "v0.156.0"
         assert [c["name"] for c in report["missing"]] == ["mysteryreceiver"]
+
+    def test_report_version_when_distributions_out_of_sync(self, tmp_path):
+        v_core_new = Version("0.156.0")
+        v_contrib_old = Version("0.155.0")
+        manager = _make_mock_inventory_manager(
+            versions_by_distribution={
+                "core": [v_core_new],
+                "contrib": [v_contrib_old],
+            },
+            inventories={
+                ("core", v_core_new): _make_core_inventory("0.156.0"),
+                ("contrib", v_contrib_old): _make_contrib_inventory("0.155.0"),
+            },
+        )
+        db_writer = CollectorDatabaseWriter(database_dir=str(tmp_path / "collector"))
+        report_path = tmp_path / "missing.json"
+
+        result = run_collector_builder(
+            inventory_manager=manager, db_writer=db_writer, audit_report_path=str(report_path)
+        )
+
+        assert result == 0
+        with open(report_path) as f:
+            report = json.load(f)
+
+        assert report["version"] == "contrib: v0.155.0, core: v0.156.0"
 
     def test_report_empty_when_all_have_display_name(self, tmp_path):
         manager = _make_mock_inventory_manager()  # default fixtures all carry display_name
@@ -626,7 +652,7 @@ class TestRunCollectorBuilderAuditReport:
         manager = _make_mock_inventory_manager()
         db_dir = tmp_path / "collector"
         db_writer = CollectorDatabaseWriter(database_dir=str(db_dir))
-        # A report written inside the DB dir would get committed / bump DB_VERSION.
+        # A report written inside the DB dir would get committed / change the content id.
         report_path = db_dir / "audit" / "missing.json"
 
         result = run_collector_builder(
@@ -676,7 +702,7 @@ class TestRunCollectorBuilderReadmes:
         assert exit_code == 0
 
         # README content was loaded and published.
-        manager.load_component_readme_content.assert_any_call("core", version, "otlpreceiver", "abc123def456")
+        manager.load_component_readme_content.assert_any_call("core", "otlpreceiver", "abc123def456")
         markdown_file = tmp_path / "collector" / "markdown" / "otlpreceiver-abc123def456.md"
         assert markdown_file.exists()
         assert markdown_file.read_text(encoding="utf-8") == readme_content
@@ -741,7 +767,7 @@ class TestReadmePublishingIsolation:
         readme_map = {"badreceiver": "aaa111aaa111", "goodreceiver": "bbb222bbb222"}
         manager.load_component_readme_map.side_effect = lambda dist, ver: readme_map if dist == "core" else {}
 
-        def load_content(dist, ver, name, h):
+        def load_content(dist, name, h):
             if name == "badreceiver":
                 raise OSError("simulated disk error reading this one file")
             return f"# {name}"
@@ -844,7 +870,7 @@ class TestReadmePublishingIsolation:
         )
         readme_map = {"badreceiver": "aaa111aaa111", "goodreceiver": "bbb222bbb222"}
         manager.load_component_readme_map.side_effect = lambda dist, ver: readme_map if dist == "core" else {}
-        manager.load_component_readme_content.side_effect = lambda dist, ver, name, h: f"# {name}"
+        manager.load_component_readme_content.side_effect = lambda dist, name, h: f"# {name}"
 
         db_writer = CollectorDatabaseWriter(database_dir=str(tmp_path / "collector"))
 
@@ -879,3 +905,45 @@ class TestReadmePublishingIsolation:
         markdown_files = [p.name for p in markdown_dir.glob("*.md")]
         assert not any("badreceiver" in name for name in markdown_files)
         assert any("goodreceiver" in name for name in markdown_files)
+
+    def test_out_of_sync_distribution_versions_merged_into_index(self, tmp_path):
+        """When core releases ahead of contrib, index.json merges the latest of each distribution."""
+        v_core_new = Version("0.156.0")
+        v_both_old = Version("0.155.0")
+
+        manager = _make_mock_inventory_manager(
+            versions_by_distribution={
+                "core": [v_core_new, v_both_old],
+                "contrib": [v_both_old],
+            },
+            inventories={
+                ("core", v_core_new): _make_core_inventory("0.156.0"),
+                ("core", v_both_old): _make_core_inventory("0.155.0"),
+                ("contrib", v_both_old): _make_contrib_inventory("0.155.0"),
+            },
+        )
+
+        db_writer = CollectorDatabaseWriter(database_dir=str(tmp_path / "collector"))
+        exit_code = run_collector_builder(inventory_manager=manager, db_writer=db_writer)
+        assert exit_code == 0
+
+        # index.json must include both core (from 0.156.0) and contrib (from 0.155.0)
+        with open(tmp_path / "collector" / "index.json") as f:
+            index_data = json.load(f)
+
+        component_ids = {c["id"] for c in index_data["components"]}
+        assert "core-nopreceiver" in component_ids
+        assert "contrib-otlpreceiver" in component_ids
+        assert index_data["taxonomy"]["distributions"] == ["contrib", "core"]
+
+        # versions-index.json must track per-distribution latest and per-version distributions
+        with open(tmp_path / "collector" / "versions-index.json") as f:
+            versions_data = json.load(f)
+
+        assert versions_data["distributions"] == {
+            "contrib": {"latest": "0.155.0"},
+            "core": {"latest": "0.156.0"},
+        }
+        v_map = {entry["version"]: entry for entry in versions_data["versions"]}
+        assert v_map["0.156.0"]["distributions"] == ["core"]
+        assert v_map["0.155.0"]["distributions"] == ["core", "contrib"]

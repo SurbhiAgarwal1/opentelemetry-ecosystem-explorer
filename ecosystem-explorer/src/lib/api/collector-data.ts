@@ -170,7 +170,8 @@ export async function loadComponent(
   const data = await fetchWithCache<CollectorComponent>(
     `collector-component-${hash}`,
     `${BASE_PATH}/components/${id}/${filename}`,
-    STORES.INSTRUMENTATIONS
+    STORES.INSTRUMENTATIONS,
+    { immutable: true }
   );
   if (!data) throw new Error(`Collector component "${id}" returned null unexpectedly`);
   return data;
@@ -191,13 +192,22 @@ export async function loadComponentBundle(
     `collector-bundle-${version}-${bundleHash}`,
     `${BASE_PATH}/bundles/${version}-${bundleHash}.json`,
     STORES.INSTRUMENTATIONS,
-    { validate: (d) => Array.isArray(d) && d.length > 0 }
+    { validate: (d) => Array.isArray(d) && d.length > 0, immutable: true }
   );
   if (!data) throw new Error(`Collector bundle for ${version} returned null unexpectedly`);
   return data;
 }
 
-export async function loadAllComponents(version: string): Promise<IndexComponent[]> {
+export async function loadAllComponents(): Promise<IndexComponent[]>;
+export async function loadAllComponents(version: string): Promise<IndexComponent[]>;
+export async function loadAllComponents(version?: string): Promise<IndexComponent[]> {
+  // If no version is specified or "latest", return the pre-computed active catalog
+  // from index.json across all distributions.
+  if (!version || version === "latest") {
+    const index = await loadIndex();
+    return index.components;
+  }
+
   // Primary path: one request for the whole version via the consolidated bundle,
   // when the versions index advertises a bundle hash. Falls back to the
   // per-component fan-out for old cached indexes (no bundle hash), a missing

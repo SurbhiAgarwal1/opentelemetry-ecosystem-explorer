@@ -13,27 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-const SENTINELS = [
-  "javaagent/versions-index.json",
-  "collector/versions-index.json",
-  "configuration/versions-index.json",
-];
+import { missingGeneratedData, missingGeneratedDataMessage } from "../../../scripts/generated-data";
 
 export default function setup(): void {
   const dataDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../public/data");
-  const missing = SENTINELS.filter(
-    (relative) => !statSync(resolve(dataDir, relative), { throwIfNoEntry: false })?.isFile()
-  );
+  const missing = missingGeneratedData(dataDir);
 
   if (missing.length > 0) {
     throw new Error(
-      `The generated explorer database is missing: ${missing.join(", ")}.\n` +
-        `The integration suite runs against the real database.\n` +
-        `From the repository root:  uv run explorer-db-builder --clean`
+      `${missingGeneratedDataMessage(missing)}\nThe integration suite runs against the real database.`
     );
   }
 }

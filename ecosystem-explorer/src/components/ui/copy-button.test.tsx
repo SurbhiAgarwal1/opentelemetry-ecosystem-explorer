@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vite-plus/test";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -46,7 +46,7 @@ describe("CopyButton", () => {
 
     expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
 
-    act(() => vi.runAllTimers());
+    void act(() => vi.runAllTimers());
 
     expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
   });

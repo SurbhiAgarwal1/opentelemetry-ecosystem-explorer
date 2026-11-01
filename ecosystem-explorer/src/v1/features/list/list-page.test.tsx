@@ -16,7 +16,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   useCollectorComponents,
@@ -176,7 +176,7 @@ describe("CollectorListPageV1", () => {
 
   it.each([
     ["+0.149.0+", "0.149.0", "?version=0.149.0", "0.149.0"],
-    ["+%09+", "0.150.0", "", ""],
+    ["+%09+", "", "", ""],
     ["v0.149.0", "0.149.0", "?version=0.149.0", "0.149.0"],
     ["+v0.149.0+", "0.149.0", "?version=0.149.0", "0.149.0"],
   ])(
@@ -225,7 +225,7 @@ describe("CollectorListPageV1", () => {
         "href",
         "/collector/components/contrib/jmxreceiver?version=deprecated"
       );
-      expect(useCollectorComponents).toHaveBeenCalledWith("");
+      expect(useCollectorComponents).toHaveBeenCalledWith(null);
     }
   );
 

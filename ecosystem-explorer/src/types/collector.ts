@@ -15,6 +15,7 @@
  */
 
 export interface VersionsIndex {
+  distributions?: Record<string, { latest: string }>;
   versions: VersionInfo[];
 }
 
@@ -28,6 +29,10 @@ export interface VersionInfo {
    * missing bundles) degrade gracefully to the per-component fan-out.
    */
   bundle_hash?: string;
+  /**
+   * Distributions available in this release version (e.g. ["core", "contrib"]).
+   */
+  distributions?: string[];
 }
 
 export interface VersionManifest {
@@ -52,8 +57,8 @@ export interface CollectorComponent {
   ecosystem: string;
   /** The functional type of the component. */
   type: "receiver" | "processor" | "exporter" | "extension" | "connector";
-  /** The distribution where this component originates. */
-  distribution: "core" | "contrib" | string;
+  /** The distribution where this component originates (e.g., core, contrib). */
+  distribution: string;
   /** Human-readable name of the component. */
   display_name?: string | null;
   /** Brief description of the component's functionality. */

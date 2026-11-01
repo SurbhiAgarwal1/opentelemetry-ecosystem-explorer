@@ -39,7 +39,6 @@ class CollectorSync:
     Handles:
     - Detecting latest release versions
     - Scanning component metadata from repositories
-    - Creating SNAPSHOT versions from main branch
     - Managing inventory storage
     """
 
@@ -176,7 +175,7 @@ class CollectorSync:
         drift detection and parser routing.
 
         Also discovers and stores each component's README.md, if present,
-        content-addressed under ``component_readmes/``. README publishing
+        content-addressed under the distribution's shared ``readmes/``. README publishing
         is best-effort: a failure here is logged and does not fail the sync.
         This always runs after the inventory write below, never before -
         see the comment at that call site for why the order matters.
@@ -188,7 +187,8 @@ class CollectorSync:
         Registry layout after this call:
             ecosystem-registry/collector/
                 {distribution}/v{version}/*.yaml               (component data, each with schema_hash)
-                {distribution}/v{version}/component_readmes/    (one file per distinct README content)
+                {distribution}/v{version}/component-readmes.yaml (raw name -> shared filename)
+                {distribution}/readmes/                        (one file per distinct README content)
                 meta/schemas/{hash}.yaml                        (one file per distinct schema)
 
         Args:
@@ -216,6 +216,13 @@ class CollectorSync:
         # completed, version_exists() would incorrectly report the version
         # as already tracked despite zero real component data ever being
         # written - causing process_latest_release() to skip it forever.
+        self._save_component_readmes(distribution, version, components)
+        logger.info("  Saved %s %s (schema_hash=%s)", distribution, version, schema_hash)
+
+    def _save_component_readmes(
+        self, distribution: DistributionName, version: Version, components: dict[str, list[dict[str, Any]]]
+    ) -> bool:
+        """Publish READMEs from the current checkout, leaving write failures retryable."""
         repo_path = self.repos[distribution]
         try:
             readmes = discover_component_readmes(repo_path, components)
@@ -226,8 +233,21 @@ class CollectorSync:
             # README publishing is best-effort and must never fail the sync -
             # the component inventory itself is the critical data.
             logger.warning("  Failed to save component READMEs for %s %s: %s", distribution, version, e)
+            return False
+        return True
 
-        logger.info("  Saved %s %s (schema_hash=%s)", distribution, version, schema_hash)
+    def backfill_missing_readmes(self, distribution: DistributionName) -> list[Version]:
+        """Retry incomplete tracked releases from their tags without rewriting component metadata."""
+        completed = []
+        for version in self.inventory_manager.list_release_versions(distribution):
+            if self.inventory_manager.readme_index_exists(distribution, version):
+                continue
+            logger.info("  Backfilling component READMEs for %s %s", distribution, version)
+            self.version_detectors[distribution].checkout_version(version)
+            inventory = self.inventory_manager.load_versioned_inventory(distribution, version)
+            if self._save_component_readmes(distribution, version, inventory["components"]):
+                completed.append(version)
+        return completed
 
     def _resolve_schema_hash(self, version: Version) -> str:
         """Store and return the core schema hash for ``version``.
@@ -357,7 +377,7 @@ class CollectorSync:
 
     def process_latest_release(self, distribution: DistributionName) -> Version | None:
         """
-        Process the latest release version if not already tracked.
+        Retry missing release README indexes, then process the latest release if new.
 
         Args:
             distribution: Distribution name
@@ -372,6 +392,7 @@ class CollectorSync:
             logger.info("No releases found for %s", distribution)
             return None
 
+        self.backfill_missing_readmes(distribution)
         if self.inventory_manager.version_exists(distribution, latest):
             logger.info("Version %s %s already tracked", distribution, latest)
             return None
@@ -386,48 +407,8 @@ class CollectorSync:
 
         return latest
 
-    def update_snapshot(self, distribution: DistributionName) -> Version:
-        """
-        Update or create the SNAPSHOT version for a distribution.
-
-        This:
-        1. Determines next snapshot version
-        2. Scans main branch
-        3. Cleans up old snapshots
-        4. Saves as new snapshot
-
-        Args:
-            distribution: Distribution name
-
-        Returns:
-            Snapshot version that was created
-        """
-        detector = self.version_detectors[distribution]
-
-        snapshot_version = detector.determine_next_snapshot_version()
-        logger.info("")
-        logger.info("Updating %s %s...", distribution, snapshot_version)
-
-        self.initialize_previous_version(distribution)
-        components = self.scan_version(distribution, snapshot_version, checkout=True)
-
-        logger.info("")
-        logger.info("Cleaning up old %s snapshots...", distribution)
-        removed = self.inventory_manager.cleanup_snapshots(distribution)
-        if removed > 0:
-            logger.info("  Removed %d old snapshot(s)", removed)
-
-        self.save_version(distribution, snapshot_version, components)
-        self.detect_and_track_deprecations(distribution, snapshot_version, components)
-
-        return snapshot_version
-
-    def _process_distribution_sync(self, distribution: DistributionName) -> tuple[Version | None, Version]:
-        latest = self.process_latest_release(distribution)
-
-        snapshot = self.update_snapshot(distribution)
-
-        return (latest, snapshot)
+    def _process_distribution_sync(self, distribution: DistributionName) -> Version | None:
+        return self.process_latest_release(distribution)
 
     def sync(self) -> dict[str, Any]:
         """
@@ -436,14 +417,12 @@ class CollectorSync:
         This performs the complete sync workflow:
         1. Check for new releases in each distribution
         2. Process any new releases
-        3. Update snapshots for each distribution
 
         Returns:
             Summary of what was processed
         """
         summary = {
             "new_releases": [],
-            "snapshots_updated": [],
         }
 
         logger.info("=" * 60)
@@ -457,17 +436,16 @@ class CollectorSync:
                 logger.info("Distribution: %s", distribution.upper())
                 logger.info("=" * 60)
 
-                latest, snapshot = self._process_distribution_sync(distribution)
-                distribution_results[distribution] = (latest, snapshot)
+                latest = self._process_distribution_sync(distribution)
+                distribution_results[distribution] = latest
 
         except Exception as e:
             logger.error("Error processing distributions: %s", e)
             raise
 
-        for distribution, (latest, snapshot) in distribution_results.items():
+        for distribution, latest in distribution_results.items():
             if latest:
                 summary["new_releases"].append({"distribution": distribution, "version": str(latest)})
-            summary["snapshots_updated"].append({"distribution": distribution, "version": str(snapshot)})
 
         logger.info("")
         logger.info("=" * 60)
@@ -475,9 +453,6 @@ class CollectorSync:
         logger.info("=" * 60)
         logger.info("New releases processed: %d", len(summary["new_releases"]))
         for item in summary["new_releases"]:
-            logger.info("  - %s: %s", item["distribution"], item["version"])
-        logger.info("Snapshots updated: %d", len(summary["snapshots_updated"]))
-        for item in summary["snapshots_updated"]:
             logger.info("  - %s: %s", item["distribution"], item["version"])
 
         self.inventory_manager.save_deprecations(self.deprecations)
@@ -558,7 +533,7 @@ class CollectorSync:
             prune_unlisted: When True, delete existing release versions not in the provided
                             list for each distribution before backfilling. Requires an explicit
                             version list per distribution (distributions mapped to None are left
-                            untouched). SNAPSHOT versions are always kept.
+                            untouched).
 
         Returns:
             Summary of backfill operation

@@ -19,6 +19,7 @@ import logging
 
 import pytest
 from explorer_db_builder.collector_database_writer import CollectorDatabaseWriter
+from explorer_db_builder.content_hashing import content_hash
 from semantic_version import Version
 
 
@@ -187,6 +188,28 @@ class TestWriteVersionList:
 
         assert data["versions"][0]["bundle_hash"] == "hashA"
         assert "bundle_hash" not in data["versions"][1]
+
+    def test_write_version_list_with_distributions(self, db_writer, temp_db_dir):
+        v1 = Version("0.161.0")
+        v2 = Version("0.160.0")
+        db_writer.write_version_list(
+            [v1, v2],
+            bundle_hashes={v1: "hash1", v2: "hash2"},
+            version_distributions={v1: ["core"], v2: ["core", "contrib"]},
+            distribution_latest={"core": "0.161.0", "contrib": "0.160.0"},
+        )
+
+        with open(temp_db_dir / "versions-index.json") as f:
+            data = json.load(f)
+
+        assert data["distributions"] == {
+            "contrib": {"latest": "0.160.0"},
+            "core": {"latest": "0.161.0"},
+        }
+        assert data["versions"][0]["version"] == "0.161.0"
+        assert data["versions"][0]["distributions"] == ["core"]
+        assert data["versions"][1]["version"] == "0.160.0"
+        assert data["versions"][1]["distributions"] == ["core", "contrib"]
 
 
 class TestWriteVersionBundle:
@@ -572,3 +595,16 @@ class TestRemoveOrphans:
         assert "Skipping orphan GC: no readable version index found" in caplog.text
         first_id = next(iter(component_map))
         assert db_writer._component_file(first_id, component_map[first_id]).exists()
+
+
+class TestContentAddressedFilesMatchTheirNames:
+    def test_every_hashed_json_file_parses_to_its_hash(self, db_writer, temp_db_dir, sample_components):
+        db_writer.write_components(sample_components)
+        db_writer.write_version_bundle(Version("0.150.0"), sample_components)
+
+        files = [*temp_db_dir.glob("components/**/*.json"), *temp_db_dir.glob("bundles/*.json")]
+
+        assert len(files) == len(sample_components) + 1
+        for file in files:
+            with open(file, encoding="utf-8") as handle:
+                assert file.stem.rsplit("-", 1)[1] == content_hash(json.load(handle)), file

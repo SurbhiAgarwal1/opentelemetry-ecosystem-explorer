@@ -16,7 +16,8 @@
 
 /*
  * Java Agent landing config. Copy fields (eyebrow, lead, CTA labels, pipeline
- * title/lead, stage label/description, quick-entry title/description) hold
+ * title/lead, stage label/description, quick-entry title/description, announcements
+ * heading/labels) hold
  * i18next KEYS, not literal English — `EcosystemPage` resolves them via
  * `useTranslation("java-agent")` against the `landingV1.*` block. The hero
  * `title` stays JSX because it carries the gradient-accent span.
@@ -28,7 +29,7 @@
  * deltas (version-only). The pipeline renders as a no-flow grid of categories.
  */
 
-import { Box, GitCompare, Layers } from "lucide-react";
+import { BookOpen, Box, FileText, GitCompare, Layers, Settings } from "lucide-react";
 import { TYPE_STRIPE_COLORS } from "@/components/ui/type-stripe-colors";
 import { JavaIcon } from "@/components/icons/java-icon";
 import type { EcosystemConfig } from "./types";
@@ -63,6 +64,7 @@ export const javaAgentConfig: EcosystemConfig = {
   },
   pipelineTitle: "landingV1.pipeline.title",
   pipelineLead: "landingV1.pipeline.lead",
+  pipelineLeadWithTotal: "landingV1.pipeline.leadWithTotal",
   pipelineNoFlow: true,
   stages: [
     {
@@ -133,7 +135,35 @@ export const javaAgentConfig: EcosystemConfig = {
       href: javaInstrumentationPath,
       icon: <Layers className="h-5 w-5" aria-hidden />,
     },
+    {
+      id: "configuration",
+      title: "landingV1.quickEntries.configuration.title",
+      description: "landingV1.quickEntries.configuration.description",
+      href: "/java-agent/configuration",
+      icon: <Settings className="h-5 w-5" aria-hidden />,
+    },
+    {
+      id: "getting-started",
+      title: "landingV1.quickEntries.getting-started.title",
+      description: "landingV1.quickEntries.getting-started.description",
+      href: "https://opentelemetry.io/docs/zero-code/java/",
+      external: true,
+      icon: <BookOpen className="h-5 w-5" aria-hidden />,
+    },
+    {
+      id: "config-reference",
+      title: "landingV1.quickEntries.config-reference.title",
+      description: "landingV1.quickEntries.config-reference.description",
+      href: "https://opentelemetry.io/docs/zero-code/java/agent/configuration/",
+      external: true,
+      icon: <FileText className="h-5 w-5" aria-hidden />,
+    },
   ],
+  announcements: {
+    heading: "landingV1.announcements.heading",
+    loading: "landingV1.announcements.loading",
+    readMore: "landingV1.announcements.readMore",
+  },
   release: {
     version: "v2.10.0",
     // No release date until the watcher captures git tag dates (follow-up). Java

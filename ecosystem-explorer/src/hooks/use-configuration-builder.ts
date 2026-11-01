@@ -64,7 +64,6 @@ export interface ConfigurationBuilderActionsContextValue {
   setValueByPath: (path: Path, value: ConfigValue) => void;
   mergeDefaults: (entries: { path: Path; value: ConfigValue }[]) => void;
   setCustomization: (module: string, status: "enabled" | "disabled" | "none") => void;
-  pruneInstrumentations: (validModules: readonly string[]) => void;
   setEnabled: (section: string, enabled: boolean) => void;
   selectPlugin: (path: string, pluginKey: string) => void;
   addListItem: (path: string) => void;
@@ -178,10 +177,6 @@ export function useConfigurationBuilderState(
     },
     []
   );
-
-  const pruneInstrumentations = useCallback((validModules: readonly string[]) => {
-    dispatch({ type: "PRUNE_INSTRUMENTATIONS", validModules });
-  }, []);
 
   const mergeDefaults = useCallback((entries: { path: Path; value: ConfigValue }[]) => {
     dispatch({ type: "MERGE_DEFAULTS", entries });
@@ -329,7 +324,6 @@ export function useConfigurationBuilderState(
       setValueByPath,
       mergeDefaults,
       setCustomization,
-      pruneInstrumentations,
       setEnabled,
       selectPlugin,
       addListItem,
@@ -345,7 +339,7 @@ export function useConfigurationBuilderState(
       setFieldError,
     }),
     // all callbacks are stable; resetToDefaults reads starter via ref
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 

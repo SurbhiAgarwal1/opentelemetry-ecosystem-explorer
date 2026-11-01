@@ -69,8 +69,8 @@ def main():
     parser.add_argument(
         "--prune-unlisted",
         action="store_true",
-        help="Delete existing release versions NOT listed in --versions before backfilling "
-        "(SNAPSHOT versions are always kept). Requires --backfill and --versions.",
+        help="Delete existing release versions NOT listed in --versions before backfilling. "
+        "Requires --backfill and --versions.",
     )
     args = parser.parse_args()
 
@@ -90,7 +90,7 @@ def main():
         else:
             logger.info("Versions: auto-detect all existing versions")
         if args.prune_unlisted:
-            logger.info("Prune unlisted: delete release versions not in --versions (keeping SNAPSHOTs)")
+            logger.info("Prune unlisted: delete release versions not in --versions")
     else:
         logger.info("Mode: SYNC")
 

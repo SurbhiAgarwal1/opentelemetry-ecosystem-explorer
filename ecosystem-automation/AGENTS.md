@@ -9,7 +9,10 @@ Python pipelines that watch upstream OpenTelemetry projects and write versioned 
 - `js-instrumentation-watcher/` — JavaScript (js-contrib) instrumentations
 - `python-instrumentation-watcher/` — Python (python-contrib) instrumentations
 - `configuration-watcher/` — Declarative configuration schema
+- `conformance-watcher/` — Semantic-convention conformance reports
 - `explorer-db-builder/` — Builds the content-addressed database the frontend reads
+- `semconv-timeline-watcher/` — Proposes semantic-convention timeline candidates for review (see its
+  README; it never writes `timeline.json`)
 - `v1-registry-sync/` — Compares the collector registry against the upstream v1 registry
 - `watcher-common/` — Shared base classes for inventory and version detection
   (`watcher-common/src/watcher_common/`)
@@ -29,7 +32,8 @@ Run from the repository root:
 - `uv run collector-watcher` / `uv run java-instrumentation-watcher` /
   `uv run dotnet-instrumentation-watcher` / `uv run js-instrumentation-watcher` /
   `uv run python-instrumentation-watcher` / `uv run configuration-watcher` /
-  `uv run explorer-db-builder` / `uv run v1-registry-sync` — Run a watcher or tool
+  `uv run conformance-watcher` / `uv run explorer-db-builder` / `uv run v1-registry-sync` — Run a
+  watcher or tool
 
 Nightly CI invokes the watchers directly via these console scripts. The `collector-watcher` and
 `configuration-watcher` also expose a `backfill` mode (`--backfill`) for re-extracting existing
@@ -43,15 +47,19 @@ non-negotiable rules:
 - **Idempotency.** Always check whether a version is already in the inventory before processing it.
   Without this, nightly runs re-process every version and produce noisy diffs.
 - **Inventory layout.** Versions are written under
-  `ecosystem-registry/{ecosystem}/[{distribution}/]v{version}/`, using semantic versioning with a
-  `SNAPSHOT` prerelease tag for nightly builds. The `{distribution}` segment applies only where an
-  ecosystem ships multiple distributions: collector (`collector/{core,contrib}/v…`) and Java
-  (`java/javaagent/v…`). Configuration (`configuration/v…`) and .NET (`dotnet/v…`) have no
-  distribution segment. JavaScript and Python are exceptions to the per-version-directory rule:
-  js-contrib and python-contrib packages version independently (Python via a hybrid
-  lockstep/independent model — see `projects/135-python-instrumentation/02-schema-design.md`), so
-  they are written per package as a single file — `javascript/{package-name}/v{version}.yaml` /
+  `ecosystem-registry/{ecosystem}/[{distribution}/]v{version}/`, using semantic versioning. The
+  `{distribution}` segment applies only where an ecosystem ships multiple distributions: collector
+  (`collector/{core,contrib}/v…`) and Java (`java/javaagent/v…`). Configuration (`configuration/v…`)
+  and .NET (`dotnet/v…`) have no distribution segment. JavaScript and Python are exceptions to the
+  per-version-directory rule: js-contrib and python-contrib packages version independently (Python
+  via a hybrid lockstep/independent model — see
+  `projects/135-python-instrumentation/02-schema-design.md`), so they are written per package as a
+  single file — `javascript/{package-name}/v{version}.yaml` /
   `python/{package-name}/v{version}.yaml` — rather than an aggregated per-version directory.
+  Conformance reports (`conformance/`) are the exception to semantic versioning: upstream reports
+  represent publication commits rather than semver releases. They are stored in place under
+  `ecosystem-registry/conformance/` (`report.json` and `source.yaml`), with Git history recording
+  each imported version.
 
 ## Schema discipline
 
@@ -84,16 +92,20 @@ were editing.
 
 ## Footguns
 
+- `semconv-timeline-watcher` keeps two different marks apart: `reviewedThrough` in `timeline.json`
+  (accepted coverage, moved only by a maintainer's merged change) and the processing `cursor` in its
+  state (never past a pending revision). Do not derive one from the other, and never let the watcher
+  write the accepted file.
+
 - Skipping the version-existence check causes nightly re-processing and large noisy PRs.
 - Manually deleting a version directory shifts the deprecation baseline for the collector watcher
   and produces false-positive deprecations on the next sync. Use the watcher's helpers instead.
-- Snapshot cleanup must be paired with writing a replacement, otherwise the snapshot is missing on
-  the frontend until the next sync.
-- The `explorer-db-builder` output directories (`public/data/{javaagent,configuration,collector}/`)
-  are builder-owned: `--clean` `rmtree`s them, so a curated file committed inside one disappears on
-  the next clean run (#882). Put hand-maintained frontend data in a sibling directory instead; the
-  builder README's Methodology section lists them. A new pipeline's output directory is
-  builder-owned and belongs in the list above.
+- The `explorer-db-builder` output directories
+  (`public/data/{javaagent,configuration,collector,javascript}/`) are builder-owned: `--clean`
+  `rmtree`s them, so a curated file committed inside one disappears on the next clean run (#882).
+  Put hand-maintained frontend data in a sibling directory instead; the builder README's Methodology
+  section lists them. A new pipeline's output directory is builder-owned and belongs in the list
+  above.
 
 ## Before finishing
 

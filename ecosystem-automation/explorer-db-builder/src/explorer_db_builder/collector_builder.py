@@ -143,7 +143,7 @@ def _process_version(
     version: Version,
     inventory_manager: InventoryManager,
     db_writer: CollectorDatabaseWriter,
-) -> tuple[dict[str, str], list[dict], str]:
+) -> tuple[dict[str, str], list[dict], str, list[str]]:
     """Load, transform, and write all components for a single version.
 
     Loads data from every distribution and merges into one flat component list.
@@ -161,14 +161,16 @@ def _process_version(
         db_writer: Destination writer.
 
     Returns:
-        Tuple of (component_map, components, bundle_hash) where component_map is
-        {component_id: hash}, components is the flat list of full canonical dicts
-        (for the latest-version index), and bundle_hash identifies the
-        consolidated per-version bundle. component_map/components are empty and
-        bundle_hash is "" if no components were found.
+        Tuple of (component_map, components, bundle_hash, distributions_present) where
+        component_map is {component_id: hash}, components is the flat list of full canonical dicts
+        used to assemble the active catalog index across distribution latest releases, bundle_hash identifies the
+        consolidated per-version bundle, and distributions_present lists distributions
+        that have components in this version.
+        component_map/components are empty and bundle_hash is "" if no components were found.
     """
     logger.info("Processing collector version: %s", version)
     all_components = []
+    distributions_present: list[str] = []
 
     for distribution in DISTRIBUTIONS:
         inventory = inventory_manager.load_versioned_inventory(distribution, version)
@@ -179,19 +181,12 @@ def _process_version(
             for component_name, markdown_hash in readme_map.items():
                 try:
                     content = inventory_manager.load_component_readme_content(
-                        distribution, version, component_name, markdown_hash
+                        distribution, component_name, markdown_hash
                     )
                     if content is not None and db_writer.write_markdown(component_name, markdown_hash, content):
                         published_readmes[component_name] = markdown_hash
                 except OSError as e:
-                    # Defensive: neither load_component_readme_content nor
-                    # write_markdown currently raise OSError (both swallow
-                    # their own failures and signal via return value - see
-                    # `content is not None and db_writer.write_markdown(...)`
-                    # above, which is what actually gates the stamp). This
-                    # stays as a safety net in case that changes, so one
-                    # component's failure still can't take down the rest of
-                    # this distribution's READMEs or the component inventory.
+                    # A single unreadable blob must not suppress other components' READMEs.
                     logger.warning(
                         "  Failed to load/publish README for component '%s' in %s %s: %s",
                         component_name,
@@ -201,10 +196,12 @@ def _process_version(
                     )
         except OSError as e:
             # Covers a failure in load_component_readme_map itself (e.g. the
-            # component_readmes directory becoming unreadable mid-scan).
+            # README index becoming unreadable).
             logger.warning("  Failed to load component READMEs for %s %s: %s", distribution, version, e)
 
         components = transform_collector_components(inventory, distribution, published_readmes)
+        if components:
+            distributions_present.append(distribution)
         logger.info("  %s: %d components", distribution, len(components))
         all_components.extend(components)
 
@@ -212,7 +209,7 @@ def _process_version(
 
     if not all_components:
         logger.warning("No components found for version %s, skipping", version)
-        return {}, [], ""
+        return {}, [], "", []
 
     component_map = db_writer.write_components(all_components)
     db_writer.write_version_index(version, component_map)
@@ -221,7 +218,7 @@ def _process_version(
     # Slim (make_index_component) shape; full detail stays in components/.
     bundle_items = [make_index_component(c) for c in all_components]
     bundle_hash = db_writer.write_version_bundle(version, bundle_items)
-    return component_map, all_components, bundle_hash
+    return component_map, all_components, bundle_hash, distributions_present
 
 
 def run_collector_builder(
@@ -236,7 +233,7 @@ def run_collector_builder(
         inventory_manager: Optional override for testing.
         db_writer: Optional override for testing.
         clean: If True, wipe the output directory before building.
-        audit_report_path: If set, write a JSON report of latest-release components
+        audit_report_path: If set, write a JSON report of active catalog components
             missing a display_name to this path (a build artifact, not part of the
             database, so it must live outside the database directory).
 
@@ -254,30 +251,42 @@ def run_collector_builder(
         logger.info("Processing %d collector release version(s)", len(versions))
 
         processed_versions: list[Version] = []
-        latest_components: list[dict] = []
         components_by_version: list[list[dict]] = []
         components_by_version_id: dict[Version, dict[str, dict]] = {}
         component_maps_by_version: dict[Version, dict[str, str]] = {}
         bundle_hashes: dict[Version, str] = {}
+        version_distributions: dict[Version, list[str]] = {}
+        latest_components_by_dist: dict[str, list[dict]] = {}
+        distribution_latest: dict[str, str] = {}
 
         for version in versions:
-            component_map, components, bundle_hash = _process_version(version, inventory_manager, db_writer)
+            component_map, components, bundle_hash, dists = _process_version(version, inventory_manager, db_writer)
             if not component_map:
                 continue
 
             processed_versions.append(version)
             bundle_hashes[version] = bundle_hash
+            version_distributions[version] = dists
+            for d in dists:
+                if d not in distribution_latest:
+                    distribution_latest[d] = str(version)
+                    latest_components_by_dist[d] = [c for c in components if c.get("distribution") == d]
+
             components_by_version.append(components)
             components_by_version_id[version] = {component["id"]: component for component in components}
             component_maps_by_version[version] = component_map
-            if not latest_components:
-                latest_components = components
 
         if not processed_versions:
             raise ValueError("No collector versions were successfully processed")
 
-        db_writer.write_version_list(processed_versions, bundle_hashes)
-        db_writer.write_index(latest_components)
+        # Combine latest components from each distribution into the active catalog
+        active_catalog_components: list[dict] = []
+        for d in DISTRIBUTIONS:
+            active_catalog_components.extend(latest_components_by_dist.get(d, []))
+        active_catalog_components.sort(key=lambda c: c["id"])
+
+        db_writer.write_version_list(processed_versions, bundle_hashes, version_distributions, distribution_latest)
+        db_writer.write_index(active_catalog_components)
         deprecated_components = _build_deprecations_index(
             inventory_manager.load_deprecations(), component_maps_by_version, components_by_version_id
         )
@@ -298,16 +307,25 @@ def run_collector_builder(
 
         if audit_report_path:
             # Enforce the "outside the database directory" invariant: a report written
-            # inside it would be committed and bump DB_VERSION. Fail fast if so.
+            # inside it would be committed and change the content id. Fail fast if so.
             report_path = Path(audit_report_path).resolve()
             db_dir = db_writer.database_dir.resolve()
             if report_path == db_dir or db_dir in report_path.parents:
                 raise ValueError(f"audit report path {report_path} must be outside the database directory {db_dir}")
 
-            # Latest release only: that's the version fixable upstream today.
-            missing = find_missing_display_names(latest_components)
-            write_missing_display_name_report(audit_report_path, str(processed_versions[0]), missing)
-            logger.info("Collector components missing display_name (latest release): %d", len(missing))
+            # Active catalog: components across each distribution's latest release.
+            missing = find_missing_display_names(active_catalog_components)
+            audit_version = (
+                f"v{processed_versions[0]}"
+                if len(set(distribution_latest.values())) <= 1
+                else ", ".join(f"{d}: v{v}" for d, v in sorted(distribution_latest.items()))
+            )
+            write_missing_display_name_report(audit_report_path, audit_version, missing)
+            logger.info(
+                "Collector components missing display_name (active catalog %s): %d",
+                audit_version,
+                len(missing),
+            )
 
         stats = db_writer.get_stats()
         total_mb = stats["total_bytes"] / (1024 * 1024)

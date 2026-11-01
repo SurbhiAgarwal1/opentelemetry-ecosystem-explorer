@@ -138,14 +138,18 @@ export function CollectorDetailPageV1() {
 
   // Router location is the tab state, including Link, replace and Back/Forward navigation.
   function selectTab(next: DetailTabId) {
-    navigate(
+    void navigate(
       { pathname: location.pathname, search: location.search, hash: `#${next}` },
       { replace: true, state: location.state }
     );
   }
 
   const versionsQ = useCollectorVersions();
-  const release = collectorReleaseContext({ searchParams, versions: versionsQ.data });
+  const release = collectorReleaseContext({
+    searchParams,
+    versions: versionsQ.data,
+    distribution,
+  });
   const deprecatedView = release.deprecated;
   const deprecationsQuery = useCollectorDeprecations(deprecatedView);
   const deprecatedEntry = deprecationsQuery.data?.components.find(
@@ -156,7 +160,7 @@ export function CollectorDetailPageV1() {
   const versionLoading = deprecatedView ? deprecationsQuery.loading : !version && !versionsQ.error;
 
   const componentQ = useCollectorComponent(distribution ?? "", name ?? "", version);
-  const componentsQ = useCollectorComponents(deprecatedView ? "" : version);
+  const componentsQ = useCollectorComponents(deprecatedView ? null : version);
   const componentVersionsQ = useComponentVersions(distribution ?? "", name ?? "");
 
   const component = componentQ.data;

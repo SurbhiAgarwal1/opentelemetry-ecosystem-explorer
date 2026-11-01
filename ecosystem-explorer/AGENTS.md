@@ -15,8 +15,8 @@ All commands run from `ecosystem-explorer/` with `bun`:
 - `bun run serve` — Vite dev server
 - `bun run build` — Production build (typecheck failures block the build)
 - `bun run typecheck` — TypeScript check without emit
-- `bun run lint` — ESLint
-- `bun run format` — Prettier write
+- `bun run lint` — Oxlint via `vp lint` (config in the `lint` block of `vite.config.ts`)
+- `bun run format` — Oxfmt via `vp fmt` (config in the `fmt` block of the root `vite.config.ts`)
 - `bun run test` — Unit tests (Vitest with jsdom)
 - `bun run test -t "<name>"` — Run a single unit test by name
 - `bun run test:integration` — Vitest integration tests (config: `vitest.integration.config.ts`)
@@ -46,14 +46,14 @@ globally, so do not duplicate it per page. A new static route also needs an entr
 - Unit tests live next to source as `*.test.ts(x)` and run with `bun run test`. Integration tests
   use `*.integration.test.ts(x)` and run with `bun run test:integration`.
 - The unit suite and `bun run typecheck` must run without the generated database.
-  `public/data/{javaagent,collector,configuration}/` is builder output that is not always present in
-  a checkout, so a test that reads it belongs in the integration suite. The
+  `public/data/{javaagent,collector,configuration,javascript}/` is builder output that is not always
+  present in a checkout, so a test that reads it belongs in the integration suite. The
   `typecheck-without-database` job in `.github/workflows/build-and-test.yml` enforces this on every
   PR. Check it locally before pushing:
 
   ```bash
   tmp=$(mktemp -d)
-  mv public/data/javaagent public/data/collector public/data/configuration "$tmp"/
+  mv public/data/javaagent public/data/collector public/data/configuration public/data/javascript "$tmp"/
   (
     trap 'mv "$tmp"/* public/data/' EXIT
     bun run typecheck && bun run test
@@ -72,8 +72,15 @@ globally, so do not duplicate it per page. A new static route also needs an entr
 ## Data fetching
 
 Wrap data fetching in custom hooks with explicit loading/data/error state. Do not fetch directly
-inside components. IndexedDB is used for client-side caching with a 24-hour expiry. Bump the
-IndexedDB schema version when changing it, or integration tests will fail with stale schema.
+inside components. IndexedDB is used for client-side caching. Mutable entries expire after 24 hours
+or when the build's content id changes, and entries fetched with `immutable: true` never expire,
+though any entry unused for seven days is still pruned.
+
+`DB_VERSION` in `src/lib/api/idb-cache.ts` is a schema version, not a data version. No workflow
+bumps it. Bump it by hand only when `STORES`, a store's `keyPath` or the `upgrade` handler change,
+or when the value cached under an existing immutable key changes shape; in that last case prefer
+renaming the key prefix, which invalidates only those entries. `CACHE_EXPIRATION_MS` is not a
+reason, because expiry is evaluated at read time.
 
 ## SEO and agent delivery
 
@@ -271,7 +278,7 @@ When reviewing UI components, always verify:
 - `bun run build` runs typecheck first; strict TypeScript blocks builds on unused locals or
   parameters.
 - Route params are unvalidated. Pages must validate URL params and handle missing data gracefully.
-- `public/data/{javaagent,configuration,collector}/` is generated and owned by
+- `public/data/{javaagent,configuration,collector,javascript}/` is generated and owned by
   `explorer-db-builder`: a `--clean` build `rmtree`s each one, so a curated file committed inside
   disappears without warning (#882). Hand-maintained data the frontend fetches goes in a sibling
   directory instead; see the Methodology section of

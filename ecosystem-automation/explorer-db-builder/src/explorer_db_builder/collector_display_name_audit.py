@@ -15,7 +15,7 @@
 """Audit collector components for a missing display_name, for the nightly tracking issue.
 
 The report is a build artifact, deliberately NOT written to the content-addressed database,
-so it stays out of the DB diff, the DB_VERSION bump, and the automated database PR.
+so it stays out of the DB diff, the content id, and the automated database PR.
 """
 
 import json
@@ -71,7 +71,7 @@ def write_missing_display_name_report(path: str, version: str, missing: list[dic
 
     Args:
         path: Destination file path (a build artifact location, not the database dir).
-        version: The collector release version the report reflects (latest processed).
+        version: The collector release version the report reflects (active catalog).
         missing: Output of find_missing_display_names.
     """
     report = {
