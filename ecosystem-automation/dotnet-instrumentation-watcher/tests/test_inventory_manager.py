@@ -128,40 +128,6 @@ class TestInventoryManager:
         versions = inventory_manager.list_versions()
         assert versions == []
 
-    def test_list_snapshot_versions(self, inventory_manager):
-        versions = [
-            Version("1.9.0"),
-            Version("1.10.0-SNAPSHOT"),
-            Version("1.11.0-SNAPSHOT"),
-        ]
-
-        for version in versions:
-            inventory_manager.save_versioned_inventory(version=version, instrumentations={"modules": []})
-
-        snapshots = inventory_manager.list_snapshot_versions()
-
-        assert len(snapshots) == 2
-        assert all(v.prerelease for v in snapshots)
-        assert Version("1.9.0") not in snapshots
-
-    def test_cleanup_snapshots(self, inventory_manager):
-        versions = [
-            Version("1.9.0"),
-            Version("1.10.0-SNAPSHOT"),
-            Version("1.11.0-SNAPSHOT"),
-        ]
-
-        for version in versions:
-            inventory_manager.save_versioned_inventory(version=version, instrumentations={"modules": []})
-
-        removed_count = inventory_manager.cleanup_snapshots()
-
-        assert removed_count == 2
-
-        remaining_versions = inventory_manager.list_versions()
-        assert len(remaining_versions) == 1
-        assert remaining_versions[0] == Version("1.9.0")
-
     def test_version_comparison_in_list(self, inventory_manager):
         versions = [
             Version("1.0.0"),

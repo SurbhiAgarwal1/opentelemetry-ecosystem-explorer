@@ -138,74 +138,6 @@ class TestInventoryManager:
         versions = inventory_manager.list_versions()
         assert versions == []
 
-    def test_list_snapshot_versions(self, inventory_manager):
-        versions = [
-            Version("2.9.0"),
-            Version("2.10.0-SNAPSHOT"),
-            Version("2.11.0-SNAPSHOT"),
-        ]
-
-        for version in versions:
-            inventory_manager.save_versioned_inventory(
-                version=version,
-                instrumentations={"file_format": 0.1, "libraries": []},
-            )
-
-        snapshots = inventory_manager.list_snapshot_versions()
-
-        assert len(snapshots) == 2
-        assert all(v.prerelease for v in snapshots)
-        assert Version("2.9.0") not in snapshots
-
-    def test_cleanup_snapshots(self, inventory_manager):
-        versions = [
-            Version("2.9.0"),
-            Version("2.10.0-SNAPSHOT"),
-            Version("2.11.0-SNAPSHOT"),
-        ]
-
-        for version in versions:
-            inventory_manager.save_versioned_inventory(
-                version=version,
-                instrumentations={"file_format": 0.1, "libraries": []},
-            )
-
-        removed_count = inventory_manager.cleanup_snapshots()
-
-        assert removed_count == 2
-
-        # Verify only release remains
-        remaining_versions = inventory_manager.list_versions()
-        assert len(remaining_versions) == 1
-        assert remaining_versions[0] == Version("2.9.0")
-
-    def test_version_exists(self, inventory_manager):
-        version = Version("2.10.0")
-
-        assert not inventory_manager.version_exists(version)
-
-        inventory_manager.save_versioned_inventory(
-            version=version,
-            instrumentations={"file_format": 0.1, "libraries": []},
-        )
-
-        assert inventory_manager.version_exists(version)
-
-    def test_save_with_snapshot_version(self, inventory_manager):
-        version = Version("2.11.0-SNAPSHOT")
-        instrumentations = {
-            "file_format": 0.1,
-            "libraries": [{"id": "test", "tags": ["test"]}],
-        }
-
-        inventory_manager.save_versioned_inventory(
-            version=version,
-            instrumentations=instrumentations,
-        )
-
-        version_dir = inventory_manager.get_version_dir(version)
-        assert version_dir.name == "v2.11.0-SNAPSHOT"
-
     def test_version_comparison_in_list(self, inventory_manager):
         versions = [
             Version("1.0.0"),
@@ -311,21 +243,6 @@ class TestInventoryManager:
         assert second == 1
         readme_dir = inventory_manager.inventory_dir / "library_readmes"
         assert len(list(readme_dir.glob("*.md"))) == 2
-
-    def test_cleanup_snapshots_removes_library_readmes(self, inventory_manager):
-        snapshot = Version("2.10.0-SNAPSHOT")
-        inventory_manager.save_versioned_inventory(
-            version=snapshot,
-            instrumentations={"file_format": 0.1, "libraries": []},
-        )
-        inventory_manager.save_library_readmes(snapshot, [("mylib-1.0", "# Content")])
-
-        snapshot_dir = inventory_manager.get_version_dir(snapshot)
-        assert (snapshot_dir / "library-readmes.yaml").exists()
-
-        inventory_manager.cleanup_snapshots()
-
-        assert not snapshot_dir.exists()
 
 
 class TestLibraryReadme:

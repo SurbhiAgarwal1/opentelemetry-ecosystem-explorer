@@ -47,14 +47,14 @@ non-negotiable rules:
 - **Idempotency.** Always check whether a version is already in the inventory before processing it.
   Without this, nightly runs re-process every version and produce noisy diffs.
 - **Inventory layout.** Versions are written under
-  `ecosystem-registry/{ecosystem}/[{distribution}/]v{version}/`, using semantic versioning with a
-  `SNAPSHOT` prerelease tag for nightly builds. The `{distribution}` segment applies only where an
-  ecosystem ships multiple distributions: collector (`collector/{core,contrib}/v…`) and Java
-  (`java/javaagent/v…`). Configuration (`configuration/v…`) and .NET (`dotnet/v…`) have no
-  distribution segment. JavaScript and Python are exceptions to the per-version-directory rule:
-  js-contrib and python-contrib packages version independently (Python via a hybrid
-  lockstep/independent model — see `projects/135-python-instrumentation/02-schema-design.md`), so
-  they are written per package as a single file — `javascript/{package-name}/v{version}.yaml` /
+  `ecosystem-registry/{ecosystem}/[{distribution}/]v{version}/`, using semantic versioning. The
+  `{distribution}` segment applies only where an ecosystem ships multiple distributions: collector
+  (`collector/{core,contrib}/v…`) and Java (`java/javaagent/v…`). Configuration (`configuration/v…`)
+  and .NET (`dotnet/v…`) have no distribution segment. JavaScript and Python are exceptions to the
+  per-version-directory rule: js-contrib and python-contrib packages version independently (Python
+  via a hybrid lockstep/independent model — see
+  `projects/135-python-instrumentation/02-schema-design.md`), so they are written per package as a
+  single file — `javascript/{package-name}/v{version}.yaml` /
   `python/{package-name}/v{version}.yaml` — rather than an aggregated per-version directory.
   Conformance reports (`conformance/`) are the exception to semantic versioning: upstream reports
   represent publication commits rather than semver releases. They are stored in place under
@@ -100,8 +100,6 @@ were editing.
 - Skipping the version-existence check causes nightly re-processing and large noisy PRs.
 - Manually deleting a version directory shifts the deprecation baseline for the collector watcher
   and produces false-positive deprecations on the next sync. Use the watcher's helpers instead.
-- Snapshot cleanup must be paired with writing a replacement, otherwise the snapshot is missing on
-  the frontend until the next sync.
 - The `explorer-db-builder` output directories
   (`public/data/{javaagent,configuration,collector,javascript}/`) are builder-owned: `--clean`
   `rmtree`s them, so a curated file committed inside one disappears on the next clean run (#882).

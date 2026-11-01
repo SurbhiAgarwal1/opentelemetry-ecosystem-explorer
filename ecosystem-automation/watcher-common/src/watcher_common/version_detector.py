@@ -171,24 +171,3 @@ class VersionDetector:
         if result.returncode != 0:
             return None
         return result.stdout
-
-    def determine_next_snapshot_version(self) -> Version:
-        """Determine the next snapshot version based on latest release.
-
-        Returns the next patch version after the latest release.
-        For example, if the latest release is v0.112.0, this returns v0.112.1-SNAPSHOT.
-
-        Returns:
-            Next snapshot version
-        """
-        latest = self.get_latest_release_tag()
-        if latest is None:
-            return Version(major=0, minor=0, patch=1, prerelease=("SNAPSHOT",))
-
-        # Create snapshot version (increment patch)
-        return Version(
-            major=latest.major,
-            minor=latest.minor,
-            patch=latest.patch + 1,
-            prerelease=("SNAPSHOT",),
-        )

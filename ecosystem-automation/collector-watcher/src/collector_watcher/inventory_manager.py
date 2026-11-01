@@ -259,19 +259,6 @@ class InventoryManager:
 
         return sorted(versions, reverse=True)
 
-    def list_snapshot_versions(self, distribution: DistributionName) -> list[Version]:
-        """
-        List all snapshot versions for a distribution.
-
-        Args:
-            distribution: Distribution name
-
-        Returns:
-            List of snapshot versions
-        """
-        all_versions = self.list_versions(distribution)
-        return [v for v in all_versions if v.prerelease]
-
     def list_release_versions(self, distribution: DistributionName) -> list[Version]:
         """
         List all release (non-prerelease) versions for a distribution.
@@ -285,38 +272,11 @@ class InventoryManager:
         all_versions = self.list_versions(distribution)
         return [v for v in all_versions if not v.prerelease]
 
-    def cleanup_snapshots(self, distribution: DistributionName) -> int:
-        """
-        Remove all snapshot versions for a distribution.
-
-        Args:
-            distribution: Distribution name
-
-        Returns:
-            Number of snapshot versions removed
-        """
-        snapshots = self.list_snapshot_versions(distribution)
-        count = 0
-
-        for snapshot in snapshots:
-            snapshot_dir = self.get_version_dir(distribution, snapshot)
-            if snapshot_dir.exists():
-                shutil.rmtree(snapshot_dir)
-                count += 1
-
-        if count > 0:
-            self.prune_orphan_readmes(distribution)
-            self.prune_orphan_schemas()
-
-        return count
-
     def prune_release_versions_not_in(self, distribution: DistributionName, keep_versions: Iterable[Version]) -> int:
         """
         Delete release version directories not present in ``keep_versions``.
 
-        SNAPSHOT/prerelease versions are always preserved — deleting the current
-        snapshot would leave the frontend without one until the next nightly
-        sync. Orphaned schema files are pruned once after deletion.
+        Orphaned schema files are pruned once after deletion.
 
         Args:
             distribution: Distribution name (core or contrib)

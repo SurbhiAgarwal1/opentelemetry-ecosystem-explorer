@@ -67,31 +67,6 @@ class TestInventoryManager:
     def test_list_versions_empty(self, manager):
         assert manager.list_versions() == []
 
-    def test_list_snapshot_versions(self, manager, tmp_path):
-        _save_sample(manager, Version("1.0.0"), tmp_path)
-        _save_sample(manager, Version(major=1, minor=0, patch=1, prerelease=("SNAPSHOT",)), tmp_path)
-        _save_sample(manager, Version(major=1, minor=1, patch=0, prerelease=("SNAPSHOT",)), tmp_path)
-
-        snapshots = manager.list_snapshot_versions()
-
-        assert len(snapshots) == 2
-        assert all(v.prerelease for v in snapshots)
-
-    def test_cleanup_snapshots(self, manager, tmp_path):
-        release = Version("1.0.0")
-        snap1 = Version(major=1, minor=0, patch=1, prerelease=("SNAPSHOT",))
-        snap2 = Version(major=1, minor=1, patch=0, prerelease=("SNAPSHOT",))
-
-        for v in [release, snap1, snap2]:
-            _save_sample(manager, v, tmp_path)
-
-        removed = manager.cleanup_snapshots()
-
-        assert removed == 2
-        assert manager.version_exists(release)
-        assert not manager.version_exists(snap1)
-        assert not manager.version_exists(snap2)
-
     def test_version_exists(self, manager, tmp_path):
         version = Version("1.0.0")
         assert not manager.version_exists(version)

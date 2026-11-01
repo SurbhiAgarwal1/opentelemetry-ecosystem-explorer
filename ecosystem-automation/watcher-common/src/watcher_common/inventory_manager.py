@@ -71,7 +71,7 @@ class BaseInventoryManager:
             if item.is_dir():
                 try:
                     # Parse version string, stripping 'v' prefix
-                    # Handles "v1.0.0", "v1.0.1-SNAPSHOT"
+                    # Handles "v1.0.0"
                     version = Version(item.name.lstrip("v"))
                     versions.append(version)
                 except ValueError:
@@ -79,15 +79,6 @@ class BaseInventoryManager:
                     continue
 
         return sorted(versions, reverse=True)
-
-    def list_snapshot_versions(self) -> list[Version]:
-        """
-        List all snapshot versions.
-
-        Returns:
-            List of snapshot versions
-        """
-        return [v for v in self.list_versions() if v.prerelease]
 
     def list_release_versions(self) -> list[Version]:
         """
@@ -97,24 +88,6 @@ class BaseInventoryManager:
             List of release versions, sorted newest to oldest
         """
         return [v for v in self.list_versions() if not v.prerelease]
-
-    def cleanup_snapshots(self) -> int:
-        """
-        Remove all snapshot versions.
-
-        Returns:
-            Number of snapshot versions removed
-        """
-        snapshots = self.list_snapshot_versions()
-        count = 0
-
-        for snapshot in snapshots:
-            snapshot_dir = self.get_version_dir(snapshot)
-            if snapshot_dir.exists():
-                shutil.rmtree(snapshot_dir)
-                count += 1
-
-        return count
 
     def version_exists(self, version: Version) -> bool:
         """
